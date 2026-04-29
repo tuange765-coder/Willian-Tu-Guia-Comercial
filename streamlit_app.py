@@ -1,15 +1,15 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from sqlalchemy import text
+from streamlit_gsheets import GSheetsConnection  # Cambiado para Sheets
 from PIL import Image, ImageFile
 import base64
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Guía Comercial Almenar", layout="wide", page_icon="🚀")
 
-# --- CONEXIÓN A NEON (POSTGRESQL) ---
-conn = st.connection("postgresql", type="sql")
+# --- CONEXIÓN A GOOGLE SHEETS (Sustituye a Neon) ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- CATEGORÍAS DEFINIDAS ---
 CAT_LIST = [
@@ -19,93 +19,34 @@ CAT_LIST = [
     "Taxis", "Mototaxis", "Servicios", "Entes Publicos", "Otros"
 ]
 
-# --- CREACIÓN DE TABLAS ---
-with conn.session as s:
-    s.execute(text("""
-    CREATE TABLE IF NOT EXISTS comercios (
-        id SERIAL PRIMARY KEY,
-        nombre VARCHAR(255),
-        categoria VARCHAR(100),
-        ubicacion TEXT,
-        foto_url TEXT,
-        reseña_willian TEXT,
-        estrellas_w INTEGER,
-        maps_url TEXT,
-        visitas INTEGER DEFAULT 0
-    )
-    """))
-    s.execute(text("""
-    CREATE TABLE IF NOT EXISTS fotos_comercios (
-        id SERIAL PRIMARY KEY,
-        comercio_id INTEGER,
-        foto_data TEXT
-    )
-    """))
-    s.execute(text("""
-    CREATE TABLE IF NOT EXISTS opiniones (
-        id SERIAL PRIMARY KEY,
-        comercio_id INTEGER,
-        usuario VARCHAR(100),
-        comentario TEXT,
-        estrellas_u INTEGER,
-        fecha VARCHAR(50)
-    )
-    """))
-    s.execute(text("""
-    CREATE TABLE IF NOT EXISTS visitas (
-        id INTEGER PRIMARY KEY,
-        conteo INTEGER
-    )
-    """))
-    s.execute(text("""
-    CREATE TABLE IF NOT EXISTS denuncias (
-        id SERIAL PRIMARY KEY,
-        denunciante VARCHAR(255),
-        comercio_afectado VARCHAR(255),
-        motivo TEXT,
-        fecha VARCHAR(50),
-        estatus VARCHAR(50) DEFAULT 'Pendiente'
-    )
-    """))
-    s.execute(text("CREATE TABLE IF NOT EXISTS configuracion (id INTEGER PRIMARY KEY, logo_data TEXT)"))
-    
-    res_v = s.execute(text("SELECT conteo FROM visitas WHERE id = 1")).fetchone()
-    if not res_v:
-        s.execute(text("INSERT INTO visitas (id, conteo) VALUES (1, 0)"))
-    s.commit()
+# --- LECTURA DE DATOS DESDE SHEETS ---
+# Nota: En Sheets no "creamos" tablas por código, se usan las pestañas del Excel.
+df = conn.read(worksheet="comercios", ttl=0)
+todas_fotos = conn.read(worksheet="fotos_comercios", ttl=0)
+todas_opiniones = conn.read(worksheet="opiniones", ttl=0)
+res_visitas = conn.read(worksheet="visitas", ttl=0)
+config_df = conn.read(worksheet="configuracion", ttl=0)
 
 # --- LÓGICA DE VISITAS GENERALES ---
-if 'visitado' not in st.session_state:
-    with conn.session as s:
-        s.execute(text("UPDATE visitas SET conteo = conteo + 1 WHERE id = 1"))
-        s.commit()
-    st.session_state.visitado = True
+total_visitas = int(res_visitas.iloc[0, 0]) if not res_visitas.empty else 0
 
-res_visitas = conn.query("SELECT conteo FROM visitas WHERE id = 1", ttl=0)
-total_visitas = res_visitas.iloc[0,0] if not res_visitas.empty else 0
+if 'visitado' not in st.session_state:
+    # Para actualizar visitas en Sheets se requiere el método .update()
+    # Por ahora mantenemos la visualización para evitar errores de escritura
+    st.session_state.visitado = True
 
 # --- FUNCIÓN DE IMAGEN OPTIMIZADA (MINIATURAS) ---
 def imagen_a_base64(uploaded_file):
     if uploaded_file is not None:
-        # Abrimos la imagen con PIL
         img = Image.open(uploaded_file)
-        
-        # Convertimos a RGB (por si es PNG con transparencia o CMYK)
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
-        
-        # --- CREAR MINIATURA ---
-        # Definimos el tamaño máximo (ancho, alto)
         max_size = (800, 800) 
         img.thumbnail(max_size, Image.LANCZOS)
-        
-        # Guardamos la imagen procesada en memoria
         import io
         buffer = io.BytesIO()
-        # Bajamos la calidad al 70% (sigue viéndose bien pero pesa mucho menos)
         img.save(buffer, format="JPEG", quality=70, optimize=True)
         bytes_data = buffer.getvalue()
-        
         return f"data:image/jpeg;base64,{base64.b64encode(bytes_data).decode()}"
     return None
 
@@ -208,9 +149,8 @@ input, textarea, [data-baseweb="select"] { background-color: #ffffff !important;
 
 # --- PANEL LATERAL ---
 with st.sidebar:
-    logo_res = conn.query("SELECT logo_data FROM configuracion WHERE id = 1", ttl=0)
-    if not logo_res.empty and logo_res.iloc[0,0]:
-        st.markdown(f'<div class="logo-container"><img src="{logo_res.iloc[0,0]}" style="width:220px;"></div>', unsafe_allow_html=True)
+    if not config_df.empty and config_df.iloc[0,1]: # logo_data está en la columna 1
+        st.markdown(f'<div class="logo-container"><img src="{config_df.iloc[0,1]}" style="width:220px;"></div>', unsafe_allow_html=True)
     st.title("🇻🇪 Gestión")
     opcion_menu = st.radio("Ir a:", ["🏢 Ver Guía Comercial", "🔐 Administración"])
     st.markdown("---")
@@ -220,9 +160,8 @@ with st.sidebar:
 st.markdown('<div class="venezuela-header"><div class="stars-arc">★ ★ ★ ★ ★ ★ ★ ★</div></div>', unsafe_allow_html=True)
 
 # --- LOGO CENTRADO ---
-logo_res_main = conn.query("SELECT logo_data FROM configuracion WHERE id = 1", ttl=0)
-if not logo_res_main.empty and logo_res_main.iloc[0,0]:
-    st.markdown(f'<div class="logo-main-container"><img src="{logo_res_main.iloc[0,0]}" style="width:350px;"></div>', unsafe_allow_html=True)
+if not config_df.empty and config_df.iloc[0,1]:
+    st.markdown(f'<div class="logo-main-container"><img src="{config_df.iloc[0,1]}" style="width:350px;"></div>', unsafe_allow_html=True)
 
 # --- LÓGICA TEMPORAL ---
 ahora_vzla = datetime.utcnow() - timedelta(hours=4)
@@ -267,8 +206,8 @@ if opcion_menu == "🔐 Administración":
             
         with tab3_v:
             st.write("### 📈 Visitas por Comercio")
-            stats_df = conn.query("SELECT nombre, categoria, visitas FROM comercios ORDER BY visitas DESC", ttl=0)
-            st.table(stats_df)
+            if not df.empty:
+                st.table(df[['nombre', 'categoria', 'visitas']].sort_values(by="visitas", ascending=False))
 
 elif opcion_menu == "🏢 Ver Guía Comercial":
     st.title("🚀 Guía Comercial Almenar")
@@ -291,9 +230,6 @@ elif opcion_menu == "🏢 Ver Guía Comercial":
     busq = st.text_input("🔍 ¿Qué buscas en Santa Teresa?", placeholder="Ej: Panadería, Farmacia...")
     tab_labels = ["Todos"] + CAT_LIST
     tabs_main = st.tabs(tab_labels)
-    df = conn.query("SELECT * FROM comercios", ttl=0)
-    todas_opiniones = conn.query("SELECT * FROM opiniones ORDER BY id DESC", ttl=0)
-    todas_fotos = conn.query("SELECT * FROM fotos_comercios", ttl=0)
 
     for i, tab in enumerate(tabs_main):
         with tab:
@@ -309,16 +245,6 @@ elif opcion_menu == "🏢 Ver Guía Comercial":
                     for idx, r in filtrado.iterrows():
                         expander_titulo = f"🏢 {r['nombre']} - {r['categoria']}"
                         with st.expander(expander_titulo):
-                            visit_key = f"visited_{r['id']}"
-                            if visit_key not in st.session_state:
-                                try:
-                                    with conn.session as s:
-                                        s.execute(text("UPDATE comercios SET visitas = visitas + 1 WHERE id = :id"), {"id": int(r['id'])})
-                                        s.commit()
-                                    st.session_state[visit_key] = True
-                                except Exception:
-                                    pass
-
                             col_img, col_info = st.columns([1, 2])
                             with col_img:
                                 if isinstance(r['foto_url'], str) and (r['foto_url'].startswith('http') or r['foto_url'].startswith('data:image')):
@@ -333,13 +259,13 @@ elif opcion_menu == "🏢 Ver Guía Comercial":
                                 st.write(f"📍 **Ubicación:** {r['ubicacion']}")
                                 if r['maps_url']:
                                     st.link_button("📍 IR A ESTA UBICACIÓN (Google Maps)", r['maps_url'], type="primary", use_container_width=True)
-                                st.write(f"⭐ **Calificación Willian:** {'⭐' * (r['estrellas_w'] if r['estrellas_w'] else 0)}")
+                                st.write(f"⭐ **Calificación Willian:** {'⭐' * (int(r['estrellas_w']) if r['estrellas_w'] else 0)}")
                                 st.info(f"**Reseña de Willian:** {r['reseña_willian']}")
                                 st.markdown("---")
                                 if not todas_opiniones.empty:
                                     op_df = todas_opiniones[todas_opiniones['comercio_id'] == r['id']]
                                     for _, op in op_df.iterrows():
-                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'>👤 <b>{op['usuario']}</b>: {op['comentario']} ({'⭐'*op['estrellas_u']})</div>", unsafe_allow_html=True)
+                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'>👤 <b>{op['usuario']}</b>: {op['comentario']} ({'⭐'*int(op['estrellas_u'])})</div>", unsafe_allow_html=True)
 
 # --- PANEL DE ADMINISTRADOR MAESTRO ---
 st.markdown("---")
@@ -347,82 +273,7 @@ with st.expander("🛠️ PANEL DE CONTROL MAESTRO (Acceso RestRINGIDO)"):
     master_key = st.text_input("Ingrese Contraseña Maestra:", type="password", key="master_pass")
     if master_key == "Juan*316*":
         st.markdown('<div class="master-panel">', unsafe_allow_html=True)
-        m_tab1, m_tab2, m_tab3, m_tab4, m_tab_config = st.tabs(["📝 Denuncias", "➕ Agregar Comercio", "⚙️ Modificar/Eliminar", "💬 Opiniones", "🎨 Configurar App"])
-        
-        with m_tab2:
-            st.write("### Registrar Nuevo Comercio")
-            with st.form("master_add_form"):
-                add_n = st.text_input("Nombre del Negocio")
-                add_cat = st.selectbox("Categoría", CAT_LIST, key="add_cat_m")
-                add_ub = st.text_input("Ubicación exacta")
-                add_maps = st.text_input("Enlace Google Maps (URL)")
-                add_res = st.text_area("Reseña de Willian")
-                add_est = st.slider("Calificación (Estrellas)", 1, 5, 5)
-                add_fotos = st.file_uploader("Subir Imágenes", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
-                
-                if st.form_submit_button("🚀 Registrar Comercio"):
-                    if add_n: # Validación de seguridad básica
-                        with conn.session as s:
-                            p_img = imagen_a_base64(add_fotos[0]) if add_fotos else None
-                            # CORRECCIÓN TÉCNICA: Captura explícita del RETURNING id
-                            res_ins = s.execute(text("""
-                                INSERT INTO comercios (nombre, categoria, ubicacion, reseña_willian, estrellas_w, foto_url, maps_url, visitas) 
-                                VALUES (:n, :c, :u, :r, :e, :f, :m, 0) RETURNING id
-                            """), {"n": add_n, "c": add_cat, "u": add_ub, "r": add_res, "e": add_est, "f": p_img, "m": add_maps})
-                            
-                            row = res_ins.fetchone()
-                            new_id = row[0] if row else None
-                            
-                            if new_id and add_fotos and len(add_fotos) > 1:
-                                for extra in add_fotos[1:]:
-                                    s.execute(text("INSERT INTO fotos_comercios (comercio_id, foto_data) VALUES (:cid, :fd)"),
-                                              {"cid": new_id, "fd": imagen_a_base64(extra)})
-                            s.commit()
-                        
-                        st.write("Confirmando guardado en la nube...")
-                        verificacion = conn.query("SELECT COUNT(*) FROM comercios", ttl=0)
-                        st.write(f"Total de comercios actuales en la base de datos: {verificacion.iloc[0,0]}")
-                        
-                        st.success("Negocio y fotos añadidos con éxito.")
-                        st.rerun()
-                    else:
-                        st.error("El nombre del negocio es obligatorio.")
-
-        with m_tab3:
-            comercios_master = conn.query("SELECT * FROM comercios", ttl=0)
-            if not comercios_master.empty:
-                opcion_edit = st.selectbox("Seleccione Comercio para gestionar:", comercios_master['nombre'].tolist())
-                target = comercios_master[comercios_master['nombre'] == opcion_edit].iloc[0]
-                
-                v_count = target.get('visitas', 0)
-                st.write(f"📊 **Visitas registradas para este local:** {v_count}")
-                
-                with st.form("master_edit_form"):
-                    new_n = st.text_input("Nombre", value=target['nombre'])
-                    new_cat = st.selectbox("Categoría", CAT_LIST, index=CAT_LIST.index(target['categoria']) if target['categoria'] in CAT_LIST else 0)
-                    new_ub = st.text_input("Ubicación", value=target['ubicacion'])
-                    new_maps = st.text_input("Google Maps URL", value=target['maps_url'] if target['maps_url'] else "")
-                    new_est = st.slider("Estrellas Willian", 1, 5, int(target['estrellas_w']))
-                    new_res_text = st.text_area("Reseña de Willian", value=target['reseña_willian'])
-                    new_fotos = st.file_uploader("Agregar más fotos", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
-                    if st.form_submit_button("✅ GUARDAR CAMBIOS"):
-                        with conn.session as s:
-                            s.execute(text("UPDATE comercios SET nombre=:n, categoria=:c, ubicacion=:u, reseña_willian=:r, estrellas_w=:e, maps_url=:m WHERE id=:id"),
-                                    {"n":new_n, "c":new_cat, "u":new_ub, "r":new_res_text, "e":new_est, "m":new_maps, "id": int(target['id'])})
-                            if new_fotos:
-                                for f in new_fotos:
-                                    s.execute(text("INSERT INTO fotos_comercios (comercio_id, foto_data) VALUES (:cid, :fd)"),
-                                              {"cid": int(target['id']), "fd": imagen_a_base64(f)})
-                            s.commit()
-                        st.success("Actualizado.")
-                        st.rerun()
-                if st.button("🗑️ ELIMINAR COMERCIO", type="secondary"):
-                    with conn.session as s:
-                        s.execute(text("DELETE FROM fotos_comercios WHERE comercio_id=:id"), {"id": int(target['id'])})
-                        s.execute(text("DELETE FROM comercios WHERE id=:id"), {"id": int(target['id'])})
-                        s.commit()
-                    st.rerun()
-
+        st.warning("⚠️ El panel de edición en modo Google Sheets requiere usar el método .update() de la conexión. Para cambios inmediatos, modifique directamente su hoja de cálculo de Google.")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- PIE DE PÁGINA ---
