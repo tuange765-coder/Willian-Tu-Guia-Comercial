@@ -5,6 +5,7 @@ from sqlalchemy import text
 from PIL import Image, ImageFile
 import base64
 import io
+import uuid
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Guía Comercial Almenar", layout="wide", page_icon="🚀")
@@ -345,6 +346,10 @@ elif opcion_menu == "🏢 Ver Guía Comercial":
         st.error(f"Error al cargar fotos: {e}")
         todas_fotos = pd.DataFrame()
 
+    # Inicializar un contador único para formularios
+    if 'form_counter' not in st.session_state:
+        st.session_state.form_counter = 0
+
     for i, tab in enumerate(tabs_main):
         with tab:
             categoria_seleccionada = tab_labels[i]
@@ -405,10 +410,13 @@ elif opcion_menu == "🏢 Ver Guía Comercial":
 
                             # --- FORMULARIO DE OPINIÓN DEL USUARIO ---
                             st.markdown("##### 💬 Deja tu opinión")
-                            with st.form(key=f"opinion_form_{r['id']}"):
-                                op_usuario = st.text_input("Tu nombre", key=f"op_user_{r['id']}")
-                                op_comentario = st.text_area("Comentario", key=f"op_com_{r['id']}")
-                                op_estrellas = st.slider("Tu calificación", 1, 5, 5, key=f"op_est_{r['id']}")
+                            # Generar una key única usando uuid para garantizar unicidad
+                            unique_id = str(uuid.uuid4()).replace('-', '')[:8]
+                            form_key = f"opinion_form_{r['id']}_{idx}_{i}_{unique_id}"
+                            with st.form(key=form_key):
+                                op_usuario = st.text_input("Tu nombre", key=f"op_user_{r['id']}_{idx}_{i}_{unique_id}")
+                                op_comentario = st.text_area("Comentario", key=f"op_com_{r['id']}_{idx}_{i}_{unique_id}")
+                                op_estrellas = st.slider("Tu calificación", 1, 5, 5, key=f"op_est_{r['id']}_{idx}_{i}_{unique_id}")
                                 if st.form_submit_button("Enviar opinión"):
                                     if op_usuario.strip() and op_comentario.strip():
                                         fecha_op = ahora_vzla.strftime("%d/%m/%Y")
