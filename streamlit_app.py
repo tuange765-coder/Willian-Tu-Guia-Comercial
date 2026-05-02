@@ -311,11 +311,12 @@ elif opcion_menu == "🏢 Ver Guía Comercial":
     </div>
     ''', unsafe_allow_html=True)
     
-    # Usar URL dinámica o la hardcodeada
+    # Usar URL dinámica o la hardcodeada - Enlace para visitantes (sin administración)
     try:
-        link_app = st.secrets.get("APP_URL", "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app")
+        # Este enlace lleva a la app como visitante normal
+        link_app = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/?embed=true"
     except:
-        link_app = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app"
+        link_app = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/?embed=true"
     
     whatsapp_url = f"https://api.whatsapp.com/send?text=¡Mira la Guía Comercial de Santa Teresa! 🚀 {link_app}"
     col_s1, col_s2 = st.columns(2)
