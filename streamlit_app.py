@@ -660,7 +660,8 @@ st.markdown(f'''
 # --- GUIA COMERCIAL (CONTENIDO PRINCIPAL PARA USUARIOS) ---
 st.title("Guia Comercial Almenar")
 
-link_app = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/"
+# --- ENLACES ACTUALIZADOS ---
+link_app = "https://williantuguiasantateresa.streamlit.app/"
 whatsapp_url = f"https://api.whatsapp.com/send?text=Mira la Guia Comercial de Santa Teresa! {link_app}"
 col_s1, col_s2 = st.columns(2)
 with col_s1:
