@@ -26,6 +26,7 @@ CAT_LIST = [
 
 # --- CREACIÓN DE TABLAS ---
 with conn.session as s:
+    # Primero, verificar y corregir la estructura de la tabla comercios
     s.execute(text("""
     CREATE TABLE IF NOT EXISTS comercios (
         id SERIAL PRIMARY KEY,
@@ -39,6 +40,17 @@ with conn.session as s:
         visitas INTEGER DEFAULT 0
     )
     """))
+    
+    # Asegurar que todas las columnas existan (por si acaso)
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS nombre VARCHAR(255)"))
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS categoria VARCHAR(100)"))
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS ubicacion TEXT"))
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS foto_url TEXT"))
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS reseña_willian TEXT"))
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS estrellas_w INTEGER"))
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS maps_url TEXT"))
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS visitas INTEGER DEFAULT 0"))
+    
     s.execute(text("""
     CREATE TABLE IF NOT EXISTS fotos_comercios (
         id SERIAL PRIMARY KEY,
@@ -73,9 +85,6 @@ with conn.session as s:
     )
     """))
     s.execute(text("CREATE TABLE IF NOT EXISTS configuracion (id INTEGER PRIMARY KEY, logo_data TEXT)"))
-    
-    # Agregar columna visitas si no existe (por compatibilidad con tablas antiguas)
-    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS visitas INTEGER DEFAULT 0"))
     
     res_v = s.execute(text("SELECT conteo FROM visitas WHERE id = 1")).fetchone()
     if not res_v:
@@ -497,6 +506,7 @@ with st.expander("🛠️ PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
                         try:
                             with conn.session as s:
                                 p_img = imagen_a_base64(add_fotos[0]) if add_fotos else None
+                                # Verificar que la columna ubicacion existe antes de insertar
                                 res_ins = s.execute(text("""
                                     INSERT INTO comercios (nombre, categoria, ubicacion, reseña_willian, estrellas_w, foto_url, maps_url, visitas) 
                                     VALUES (:n, :c, :u, :r, :e, :f, :m, 0) RETURNING id
@@ -519,6 +529,8 @@ with st.expander("🛠️ PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error al registrar comercio: {e}")
+                            # Mostrar más detalles del error para depuración
+                            st.exception(e)
                     else:
                         st.error("El nombre del negocio es obligatorio.")
 
