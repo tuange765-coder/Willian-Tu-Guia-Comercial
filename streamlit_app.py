@@ -419,7 +419,7 @@ elif opcion_menu == "🏢 Ver Guía Comercial":
 
 # --- PANEL DE ADMINISTRADOR MAESTRO ---
 st.markdown("---")
-with st.expander("🛠️ PANEL DE CONTROL MAESTRO (Acceso Restringido)"):  # Corregido error tipográfico
+with st.expander("🛠️ PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
     master_key = st.text_input("Ingrese Contraseña Maestra:", type="password", key="master_pass")
     if master_key == "Juan*316*":
         st.markdown('<div class="master-panel">', unsafe_allow_html=True)
@@ -588,3 +588,88 @@ with st.expander("🛠️ PANEL DE CONTROL MAESTRO (Acceso Restringido)"):  # Co
                 """, ttl=0)
                 if not op_all.empty:
                     st.dataframe(op_all, use_container_width=True)
+                    st.markdown("**Eliminar una opinión:**")
+                    op_ids = op_all['id'].tolist()
+                    sel_op_id = st.selectbox("Selecciona ID de opinión a eliminar", op_ids, key="sel_op_del")
+                    fila_op = op_all[op_all['id'] == sel_op_id].iloc[0]
+                    st.info(f"👤 {fila_op['usuario']} sobre **{fila_op['comercio']}**: {fila_op['comentario']}")
+                    if st.button("🗑️ Eliminar esta opinión", type="secondary", key="btn_op_del"):
+                        try:
+                            with conn.session as s:
+                                s.execute(text("DELETE FROM opiniones WHERE id=:id"), {"id": int(sel_op_id)})
+                                s.commit()
+                            st.success("Opinión eliminada.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al eliminar opinión: {e}")
+                else:
+                    st.info("No hay opiniones registradas todavía.")
+            except Exception as e:
+                st.error(f"Error al cargar opiniones: {e}")
+
+        # --- TAB CONFIG: LOGO ---
+        with m_tab_config:
+            st.write("### 🎨 Configurar Logo de la App")
+            try:
+                logo_actual = conn.query("SELECT logo_data FROM configuracion WHERE id = 1", ttl=0)
+                if not logo_actual.empty and logo_actual.iloc[0,0]:
+                    st.markdown("**Logo actual:**")
+                    st.markdown(f'<img src="{logo_actual.iloc[0,0]}" style="width:200px; border:2px solid #ffcc00; border-radius:10px;">', unsafe_allow_html=True)
+                    if st.button("🗑️ Eliminar logo actual", type="secondary", key="btn_del_logo"):
+                        try:
+                            with conn.session as s:
+                                s.execute(text("UPDATE configuracion SET logo_data=NULL WHERE id=1"))
+                                s.commit()
+                            st.success("Logo eliminado.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al eliminar logo: {e}")
+                else:
+                    st.info("No hay logo cargado actualmente.")
+            except Exception as e:
+                st.error(f"Error al cargar logo: {e}")
+            
+            st.markdown("---")
+            nuevo_logo = st.file_uploader("Subir nuevo logo", type=["png", "jpg", "jpeg"], key="logo_uploader")
+            if nuevo_logo and st.button("💾 Guardar logo", key="btn_save_logo"):
+                logo_b64 = imagen_a_base64(nuevo_logo)
+                if logo_b64:
+                    try:
+                        with conn.session as s:
+                            existe = s.execute(text("SELECT id FROM configuracion WHERE id=1")).fetchone()
+                            if existe:
+                                s.execute(text("UPDATE configuracion SET logo_data=:l WHERE id=1"), {"l": logo_b64})
+                            else:
+                                s.execute(text("INSERT INTO configuracion (id, logo_data) VALUES (1, :l)"), {"l": logo_b64})
+                            s.commit()
+                        st.success("Logo guardado correctamente.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al guardar logo: {e}")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# --- PIE DE PÁGINA ---
+st.markdown("""
+<div class='footer-willian'>
+    <p style='color: #ffcc00 !important; font-size: 1.2em; font-weight: bold; margin-bottom: 10px;'>
+        ¡ÚNETE A NOSOTROS Y QUE TU NEGOCIO FORME PARTE DE ESTA GUÍA COMERCIAL!
+    </p>
+    <p style='color: #ffffff !important; font-size: 1.1em;'>
+        Contáctanos por el <b>04242004015</b> (Solo WhatsApp)
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# --- PLACA DE BRONCE ---
+st.markdown("""
+<div class="bronze-plaque">
+    <div class="screw screw-tl"></div><div class="screw screw-tr"></div><div class="screw screw-bl"></div><div class="screw screw-br"></div>
+    <div class="bronze-text">
+        <span style="font-size: 2.2em;">Generado por Willian Almenar</span><br><br>
+        <span style="font-size: 1.5em; opacity: 0.85;">Prohibida la reproducción total o parcial</span><br>
+        <span style="font-size: 1.8em; letter-spacing: 6px; display: block; margin: 15px 0;">DERECHOS RESERVADOS</span>
+        <span style="font-size: 1.9em;">Santa Teresa del Tuy 2.026</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
