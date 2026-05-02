@@ -69,6 +69,9 @@ with conn.session as s:
     """))
     s.execute(text("CREATE TABLE IF NOT EXISTS configuracion (id INTEGER PRIMARY KEY, logo_data TEXT)"))
     
+    # Agregar columna visitas si no existe (por compatibilidad con tablas antiguas)
+    s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS visitas INTEGER DEFAULT 0"))
+    
     res_v = s.execute(text("SELECT conteo FROM visitas WHERE id = 1")).fetchone()
     if not res_v:
         s.execute(text("INSERT INTO visitas (id, conteo) VALUES (1, 0)"))
@@ -87,25 +90,15 @@ total_visitas = res_visitas.iloc[0,0] if not res_visitas.empty else 0
 # --- FUNCIÓN DE IMAGEN OPTIMIZADA (MINIATURAS) ---
 def imagen_a_base64(uploaded_file):
     if uploaded_file is not None:
-        # Abrimos la imagen con PIL
         img = Image.open(uploaded_file)
-        
-        # Convertimos a RGB (por si es PNG con transparencia o CMYK)
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
-        
-        # --- CREAR MINIATURA ---
-        # Definimos el tamaño máximo (ancho, alto)
         max_size = (800, 800) 
         img.thumbnail(max_size, Image.LANCZOS)
-        
-        # Guardamos la imagen procesada en memoria
         import io
         buffer = io.BytesIO()
-        # Bajamos la calidad al 70% (sigue viéndose bien pero pesa mucho menos)
         img.save(buffer, format="JPEG", quality=70, optimize=True)
         bytes_data = buffer.getvalue()
-        
         return f"data:image/jpeg;base64,{base64.b64encode(bytes_data).decode()}"
     return None
 
