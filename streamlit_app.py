@@ -6,8 +6,6 @@ from PIL import Image
 import base64
 import io
 import uuid
-import requests
-from bs4 import BeautifulSoup
 import random
 
 # --- CONFIGURACION ---
@@ -164,107 +162,121 @@ def obtener_efemerides():
     dia = hoy.day
     mes = hoy.month
     
-    # Efemerides de Venezuela por fecha
-    efemerides_venezuela = {
-        (1, 1): "Fundación de la ciudad de El Tocuyo (1545)",
-        (2, 1): "Nacimiento de José Antonio Páez (1790)",
-        (6, 1): "Batalla de Maturín (1813)",
-        (8, 1): "Nacimiento de Simón Rodríguez (1769)",
-        (10, 1): "Creación del estado Zulia (1864)",
-        (13, 1): "Creación del estado Anzoátegui (1909)",
-        (15, 1): "Día del Maestro en Venezuela",
-        (23, 1): "Caída de la dictadura de Marcos Pérez Jiménez (1958)",
-        (27, 1): "Nacimiento de Juan Crisóstomo Falcón (1820)",
-        (2, 2): "Día de Nuestra Señora de la Candelaria",
-        (4, 2): "Inicio de la Rebelión del 4F (1992)",
-        (7, 2): "Nacimiento de Rómulo Gallegos (1884)",
-        (12, 2): "Batalla de La Victoria (1814) - Día de la Juventud",
-        (14, 2): "Nacimiento de Antonio José de Sucre (1795)",
-        "Cada 1 de enero": "Año Nuevo",
-        "Cada 6 de enero": "Día de los Reyes Magos en Venezuela",
-        "Cada 14 de febrero": "Día del Amor y la Amistad (San Valentín)",
-        "Cada 19 de marzo": "Día de San José (Día del Padre en Venezuela)",
-        "Cada 19 de abril": "Declaración de la Independencia (1810) - Inicio de la Independencia",
-        "Cada 1 de mayo": "Día del Trabajador",
-        "Cada 24 de junio": "Batalla de Carabobo (1821) - Día del Ejército",
-        "Cada 5 de julio": "Firma del Acta de Independencia (1811) - Día de la Independencia",
-        "Cada 24 de julio": "Natalicio del Libertador Simón Bolívar (1783) - Día de la Armada",
-        "Cada 12 de octubre": "Día de la Resistencia Indígena",
-        "Cada 1 de noviembre": "Día de Todos los Santos",
-        "Cada 2 de noviembre": "Día de los Difuntos",
-        "Cada 18 de noviembre": "Día de la Virgen de Chiquinquirá (La Chinita)",
-        "Cada 21 de noviembre": "Día del Estudiante Universitario",
-        "Cada 25 de diciembre": "Navidad",
-        "Cada 31 de diciembre": "Fin de Año"
+    # Efemerides de Venezuela por fecha especifica
+    efemerides_venezuela_especificas = {
+        (1, 1): "Fundacion de la ciudad de El Tocuyo (1545)",
+        (2, 1): "Nacimiento de Jose Antonio Paez (1790)",
+        (6, 1): "Batalla de Maturin (1813)",
+        (8, 1): "Nacimiento de Simon Rodriguez (1769)",
+        (10, 1): "Creacion del estado Zulia (1864)",
+        (13, 1): "Creacion del estado Anzoategui (1909)",
+        (15, 1): "Dia del Maestro en Venezuela",
+        (23, 1): "Caida de la dictadura de Marcos Perez Jimenez (1958)",
+        (27, 1): "Nacimiento de Juan Crisostomo Falcon (1820)",
+        (2, 2): "Dia de Nuestra Senora de la Candelaria",
+        (4, 2): "Inicio de la Rebelion del 4F (1992)",
+        (7, 2): "Nacimiento de Romulo Gallegos (1884)",
+        (12, 2): "Batalla de La Victoria (1814) - Dia de la Juventud",
+        (14, 2): "Nacimiento de Antonio Jose de Sucre (1795)",
+        (10, 3): "Nacimiento de Jose Maria Vargas (1786)",
+        (28, 3): "Nacimiento de Francisco de Miranda (1750)",
+        (19, 4): "Declaracion de la Independencia (1810)",
+        (27, 4): "Nacimiento de Simon Bolivar (1783)",
+        (3, 5): "Creacion de la Bandera Nacional (1811)",
+        (24, 6): "Batalla de Carabobo (1821)",
+        (5, 7): "Firma del Acta de Independencia (1811)",
+        (24, 7): "Natalicio de Simon Bolivar (1783)",
+        (3, 8): "Nacimiento de Juan Vicente Gonzalez (1810)",
+        (13, 9): "Batalla de la Casa Fuerte (1812)",
+        (12, 10): "Dia de la Resistencia Indigena",
+        (27, 11): "Aniversario del Colegio de Ingenieros de Venezuela",
+        (17, 12): "Muere Simon Bolivar en Santa Marta (1830)",
+        (25, 12): "Navidad en Venezuela"
     }
     
-    # Efemerides del Mundo por fecha
-    efemerides_mundo = {
-        (1, 1): "Año Nuevo. Primer día del año en el calendario gregoriano",
-        (6, 1): "Día de Reyes. Los tres reyes magos visitan al niño Jesús",
+    # Efemerides del Mundo por fecha especifica
+    efemerides_mundo_especificas = {
+        (1, 1): "Año Nuevo. Primer dia del año en el calendario gregoriano",
+        (6, 1): "Dia de Reyes. Los tres reyes magos visitan al niño Jesus",
         (15, 1): "Nacimiento de Martin Luther King Jr. (1929)",
-        (20, 1): "Día de Martin Luther King Jr. en Estados Unidos",
-        (27, 1): "Día Internacional de Conmemoración del Holocausto",
-        (28, 1): "Nacimiento de José Martí (1853)",
-        (2, 2): "Día Mundial de los Humedales",
-        (4, 2): "Día Mundial contra el Cáncer",
-        (11, 2): "Día Internacional de la Mujer y la Niña en la Ciencia",
-        "Cada 2 de febrero": "Día de la Candelaria",
-        "Cada 14 de febrero": "Día de San Valentín - Día del Amor y la Amistad",
-        "Cada 8 de marzo": "Día Internacional de la Mujer",
-        "Cada 21 de marzo": "Día Internacional de la Eliminación de la Discriminación Racial",
-        "Cada 22 de marzo": "Día Mundial del Agua",
-        "Cada 7 de abril": "Día Mundial de la Salud",
-        "Cada 22 de abril": "Día de la Tierra",
-        "Cada 1 de mayo": "Día Internacional del Trabajo",
-        "Cada 3 de mayo": "Día Mundial de la Libertad de Prensa",
-        "Cada 8 de mayo": "Día Mundial de la Cruz Roja",
-        "Cada 15 de mayo": "Día Internacional de la Familia",
-        "Cada 21 de mayo": "Día Mundial de la Diversidad Cultural",
-        "Cada 31 de mayo": "Día Mundial sin Tabaco",
-        "Cada 5 de junio": "Día Mundial del Ambiente",
-        "Cada 8 de junio": "Día Mundial de los Océanos",
-        "Cada 20 de junio": "Día Mundial del Refugiado",
-        "Cada 21 de junio": "Día Internacional del Yoga",
-        "Cada 11 de julio": "Día Mundial de la Población",
-        "Cada 18 de julio": "Día Internacional de Nelson Mandela",
-        "Cada 28 de julio": "Día Mundial contra la Hepatitis",
-        "Cada 30 de julio": "Día Internacional de la Amistad",
-        "Cada 9 de agosto": "Día Internacional de los Pueblos Indígenas",
-        "Cada 12 de agosto": "Día Internacional de la Juventud",
-        "Cada 19 de agosto": "Día Mundial de la Asistencia Humanitaria",
-        "Cada 26 de septiembre": "Día Mundial de la Prevención del Embarazo no Planificado"
+        (20, 1): "Dia de Martin Luther King Jr. en Estados Unidos",
+        (27, 1): "Dia Internacional de Conmemoracion del Holocausto",
+        (28, 1): "Nacimiento de Jose Marti (1853)",
+        (2, 2): "Dia Mundial de los Humedales",
+        (4, 2): "Dia Mundial contra el Cancer",
+        (11, 2): "Dia Internacional de la Mujer y la Nina en la Ciencia",
+        (14, 2): "Dia de San Valentin - Dia del Amor y la Amistad",
+        (8, 3): "Dia Internacional de la Mujer",
+        (21, 3): "Dia Internacional de la Eliminacion de la Discriminacion Racial",
+        (22, 3): "Dia Mundial del Agua",
+        (7, 4): "Dia Mundial de la Salud",
+        (22, 4): "Dia de la Tierra",
+        (1, 5): "Dia Internacional del Trabajo",
+        (3, 5): "Dia Mundial de la Libertad de Prensa",
+        (8, 5): "Dia Mundial de la Cruz Roja",
+        (15, 5): "Dia Internacional de la Familia",
+        (21, 5): "Dia Mundial de la Diversidad Cultural",
+        (31, 5): "Dia Mundial sin Tabaco",
+        (5, 6): "Dia Mundial del Ambiente",
+        (8, 6): "Dia Mundial de los Oceanos",
+        (20, 6): "Dia Mundial del Refugiado",
+        (21, 6): "Dia Internacional del Yoga",
+        (11, 7): "Dia Mundial de la Poblacion",
+        (18, 7): "Dia Internacional de Nelson Mandela",
+        (28, 7): "Dia Mundial contra la Hepatitis",
+        (30, 7): "Dia Internacional de la Amistad",
+        (9, 8): "Dia Internacional de los Pueblos Indigenas",
+        (12, 8): "Dia Internacional de la Juventud",
+        (19, 8): "Dia Mundial de la Asistencia Humanitaria",
+        (26, 9): "Dia Mundial de la Prevencion del Embarazo no Planificado",
+        (24, 10): "Dia de las Naciones Unidas",
+        (31, 10): "Halloween",
+        (2, 11): "Dia de los Difuntos",
+        (20, 11): "Dia de la Revolucion Mexicana",
+        (25, 12): "Navidad",
+        (31, 12): "Fin de Año"
     }
     
     # Obtener efemerides del dia especifico
-    efemeride_ve = efemerides_venezuela.get((dia, mes), "Hoy no hay efemerides especificas de Venezuela registradas")
-    efemeride_mundo = efemerides_mundo.get((dia, mes), "Hoy no hay efemerides especificas mundiales registradas")
+    efemeride_ve = efemerides_venezuela_especificas.get((dia, mes), "Hoy conmemoramos la historia y cultura de Venezuela")
+    efemeride_mundo = efemerides_mundo_especificas.get((dia, mes), "Hoy celebramos la diversidad y unidad del mundo")
     
-    # Agregar algunas efemerides aleatorias para dar variedad
+    # Datos curiosos adicionales de Venezuela
     efemerides_extra_ve = [
-        "Venezuela es conocida por tener la segunda reserva de oro más grande del mundo",
-        "El Ávila es el pulmón vegetal de Caracas, declarado Parque Nacional en 1958",
-        "Los Teques fue fundada el 11 de octubre de 1777",
-        "El Pico Bolívar es la montaña más alta de Venezuela con 4,978 metros",
-        "El Salto Ángel es la cascada más alta del mundo con 979 metros",
-        "Venezuela tiene 43 parques nacionales que protegen ecosistemas únicos",
-        "La Orquídea es la flor nacional de Venezuela desde 1951",
+        "El Salto Angel es la cascada mas alta del mundo con 979 metros",
+        "Venezuela tiene 43 parques nacionales que protegen ecosistemas unicos",
+        "La Orquidea es la flor nacional de Venezuela desde 1951",
         "El Turpial es el ave nacional de Venezuela",
-        "El Araguaney fue declarado árbol nacional en 1948",
-        "La Arepa es considerada patrimonio cultural de Venezuela"
+        "El Araguaney fue declarado arbol nacional en 1948",
+        "La Arepa es considerada patrimonio cultural de Venezuela",
+        "Venezuela es el quinto pais con mas reservas de petroleo del mundo",
+        "El Pico Bolivar es la montana mas alta de Venezuela con 4978 metros",
+        "Los Llanos venezolanos son una de las sabanas mas grandes del mundo",
+        "El Teatro Teresa Carreno es uno de los mas importantes de Latinoamerica",
+        "Venezuela tiene la segunda reserva de oro mas grande del mundo",
+        "El Avila es el pulmon vegetal de Caracas, declarado Parque Nacional en 1958",
+        "Los Teques fue fundada el 11 de octubre de 1777",
+        "El Hato El Frío es la finca de trabajo mas grande del mundo",
+        "Venezuela es cuna del cuatro, instrumento musical emblematico"
     ]
     
+    # Datos curiosos adicionales del Mundo
     efemerides_extra_mundo = [
-        "La Gran Muralla China es la estructura más larga construida por el hombre",
-        "El Monte Everest es la montaña más alta del mundo con 8,848 metros",
-        "El Océano Pacífico es el océano más grande del mundo",
-        "El Desierto del Sahara es el desierto cálido más grande del mundo",
-        "El Amazonas es el río más caudaloso del mundo",
-        "El Vaticano es el país más pequeño del mundo",
-        "Rusia es el país más grande del mundo por superficie",
+        "La Gran Muralla China es la estructura mas larga construida por el hombre",
+        "El Monte Everest es la montana mas alta del mundo con 8848 metros",
+        "El Oceano Pacifico es el oceano mas grande del mundo",
+        "El Desierto del Sahara es el desierto calido mas grande del mundo",
+        "El Amazonas es el rio mas caudaloso del mundo",
+        "El Vaticano es el pais mas pequeno del mundo",
+        "Rusia es el pais mas grande del mundo por superficie",
         "La ONU fue fundada el 24 de octubre de 1945",
         "El internet fue inventado en 1969",
-        "La primera computadora electrónica se creó en 1946"
+        "La primera computadora electronica se creo en 1946",
+        "La Torre Eiffel mide 330 metros de altura",
+        "El Taj Mahal fue construido entre 1631 y 1653",
+        "La Mona Lisa fue pintada por Leonardo da Vinci entre 1503 y 1506",
+        "El primer vuelo de los hermanos Wright fue en 1903",
+        "La primera vacuna fue creada por Edward Jenner en 1796"
     ]
     
     extra_ve = random.choice(efemerides_extra_ve)
@@ -392,7 +404,7 @@ with st.sidebar:
                         color: white;
                         font-weight: bold;
                         text-align: center;">
-                🌐 VER GUIA COMERCIAL
+                VER GUIA COMERCIAL
             </div>
         </a>
     </div>
@@ -401,7 +413,7 @@ with st.sidebar:
     st.markdown("---")
     
     # Panel de administracion (requiere clave)
-    with st.expander("🔐 Acceso Administrador"):
+    with st.expander("Acceso Administrador"):
         clave_admin = st.text_input("Clave:", type="password", key="admin_key")
         if clave_admin == "Juan*316*":
             st.success("Acceso concedido")
@@ -622,7 +634,7 @@ st.markdown(f'''
 # Panel de Efemerides de Venezuela
 st.markdown(f'''
 <div class="efemerides-panel">
-    <span style="color:#ffcc00; font-weight:bold; font-size:1.1em;">🇻🇪 EFEMERIDES DE VENEZUELA</span><br>
+    <span style="color:#ffcc00; font-weight:bold; font-size:1.1em;">VENEZUELA</span><br>
     <span style="color:white;">📅 {efemeride_ve}</span><br>
     <span style="color:#ffcc00; font-size:0.9em; margin-top:5px; display:block;">✨ {extra_ve}</span>
 </div>
@@ -631,7 +643,7 @@ st.markdown(f'''
 # Panel de Efemerides del Mundo
 st.markdown(f'''
 <div class="efemerides-panel">
-    <span style="color:#ffcc00; font-weight:bold; font-size:1.1em;">🌍 EFEMERIDES DEL MUNDO</span><br>
+    <span style="color:#ffcc00; font-weight:bold; font-size:1.1em;">MUNDO</span><br>
     <span style="color:white;">📅 {efemeride_mundo}</span><br>
     <span style="color:#ffcc00; font-size:0.9em; margin-top:5px; display:block;">✨ {extra_mundo}</span>
 </div>
@@ -640,24 +652,24 @@ st.markdown(f'''
 # Panel de proximo festivo
 st.markdown(f'''
 <div class="holiday-panel">
-    <span style="color:#ffcc00; font-weight:bold;">📅 PROXIMO DIA FERIADO VENEZUELA 2026:</span><br>
+    <span style="color:#ffcc00; font-weight:bold;">PROXIMO DIA FERIADO VENEZUELA 2026:</span><br>
     <span style="color:white; font-weight:bold;">{proximo_festivo}</span>
 </div>
 ''', unsafe_allow_html=True)
 
 # --- GUIA COMERCIAL (CONTENIDO PRINCIPAL PARA USUARIOS) ---
-st.title("🚀 Guia Comercial Almenar")
+st.title("Guia Comercial Almenar")
 
 link_app = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/"
 whatsapp_url = f"https://api.whatsapp.com/send?text=Mira la Guia Comercial de Santa Teresa! {link_app}"
 col_s1, col_s2 = st.columns(2)
 with col_s1:
-    st.markdown(f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><div class="ven-share-card"><span class="ven-share-text">📲 Compartir por WhatsApp</span></div></a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><div class="ven-share-card"><span class="ven-share-text">Compartir por WhatsApp</span></div></a>', unsafe_allow_html=True)
 with col_s2:
-    st.markdown(f'<div class="ven-share-card"><span class="ven-share-text">🔗 Enlace Directo:</span><br><b style="color:#ffcc00; font-size:0.9em;">{link_app}</b></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="ven-share-card"><span class="ven-share-text">Enlace Directo:</span><br><b style="color:#ffcc00; font-size:0.9em;">{link_app}</b></div>', unsafe_allow_html=True)
 
 st.markdown("---")
-busq = st.text_input("🔍 Que buscas en Santa Teresa?", placeholder="Ej: Panaderia, Farmacia...")
+busq = st.text_input("Que buscas en Santa Teresa?", placeholder="Ej: Panaderia, Farmacia...")
 tab_labels = ["Todos"] + CAT_LIST
 tabs_main = st.tabs(tab_labels)
 
@@ -688,7 +700,7 @@ for i, tab in enumerate(tabs_main):
                 st.warning(f"No hay comercios registrados en {categoria_seleccionada}." if categoria_seleccionada != "Todos" else "No se encontraron resultados.")
             else:
                 for idx, r in filtrado.iterrows():
-                    expander_titulo = f"🏢 {r['nombre']} - {r['categoria']}"
+                    expander_titulo = f"{r['nombre']} - {r['categoria']}"
                     with st.expander(expander_titulo):
                         visit_key = f"visited_{r['id']}"
                         if visit_key not in st.session_state:
@@ -714,14 +726,14 @@ for i, tab in enumerate(tabs_main):
                                         pass
 
                         with col_info:
-                            st.write(f"📍 **Ubicacion:** {r['ubicacion']}")
+                            st.write(f"**Ubicacion:** {r['ubicacion']}")
                             if r['maps_url']:
-                                st.link_button("📍 IR A ESTA UBICACION (Google Maps)", r['maps_url'], type="primary", use_container_width=True)
+                                st.link_button("IR A ESTA UBICACION (Google Maps)", r['maps_url'], type="primary", use_container_width=True)
                             try:
                                 estrellas_w_val = int(r['estrellas_w']) if r['estrellas_w'] is not None and str(r['estrellas_w']).isdigit() else 0
-                                st.write(f"⭐ **Calificacion Willian:** {'⭐' * estrellas_w_val}")
+                                st.write(f"**Calificacion Willian:** {'*' * estrellas_w_val}")
                             except:
-                                st.write(f"⭐ **Calificacion Willian:** ")
+                                st.write(f"**Calificacion Willian:** ")
                             st.info(f"**Reseña de Willian:** {r['resenna_willian']}")
                             st.markdown("---")
                             if not todas_opiniones.empty:
@@ -729,11 +741,11 @@ for i, tab in enumerate(tabs_main):
                                 for _, op in op_df.iterrows():
                                     try:
                                         estrellas_u_val = int(op['estrellas_u']) if op['estrellas_u'] is not None and str(op['estrellas_u']).isdigit() else 0
-                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']} ({'⭐'*estrellas_u_val})</div>", unsafe_allow_html=True)
+                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']} ({'*'*estrellas_u_val})</div>", unsafe_allow_html=True)
                                     except:
                                         st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']}</div>", unsafe_allow_html=True)
 
-                        st.markdown("##### 💬 Deja tu opinion")
+                        st.markdown("##### Deja tu opinion")
                         unique_id = str(uuid.uuid4()).replace('-', '')[:8]
                         form_key = f"opinion_form_{r['id']}_{idx}_{i}_{unique_id}"
                         with st.form(key=form_key):
@@ -750,7 +762,7 @@ for i, tab in enumerate(tabs_main):
                                                 "VALUES (:cid, :u, :c, :e, :f)"
                                             ), {"cid": int(r['id']), "u": op_usuario.strip(), "c": op_comentario.strip(), "e": op_estrellas, "f": fecha_op})
                                             s.commit()
-                                        st.success("¡Opinion enviada! Gracias.")
+                                        st.success("Opinion enviada! Gracias.")
                                         st.rerun()
                                     except Exception as e:
                                         st.error(f"Error al guardar opinion: {e}")
@@ -761,10 +773,10 @@ for i, tab in enumerate(tabs_main):
 st.markdown("""
 <div class='footer-willian'>
     <p style='color: #ffcc00 !important; font-size: 1.2em; font-weight: bold; margin-bottom: 10px;'>
-        ¡UNETE A NOSOTROS Y QUE TU NEGOCIO FORME PARTE DE ESTA GUIA COMERCIAL!
+        UNETE A NOSOTROS Y QUE TU NEGOCIO FORME PARTE DE ESTA GUIA COMERCIAL!
     </p>
     <p style='color: #ffffff !important; font-size: 1.1em;'>
-        Contactanos por el <b>04242004015</b> (Solo WhatsApp)
+        Contactanos por el 04242004015 (Solo WhatsApp)
     </p>
 </div>
 """, unsafe_allow_html=True)
