@@ -1,36 +1,22 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from sqlalchemy import text, create_engine
-from PIL import Image, ImageFile
+from sqlalchemy import text
+from PIL import Image
 import base64
 import io
 import uuid
-import os
 
 # --- CONFIGURACION ---
 st.set_page_config(page_title="Guia Comercial Almenar", layout="wide", page_icon="🚀")
 
 # --- CONEXION A NEON (POSTGRESQL) ---
-st.write("### Informacion de depuracion:")
-st.write("Intentando conectar a la base de datos...")
-
-if hasattr(st, 'secrets'):
-    st.write("Secretos disponibles:", list(st.secrets.keys()) if st.secrets else "No hay secretos")
-else:
-    st.write("No se encontraron secretos")
-
 conn = None
-connection_error = False
-error_message = ""
 
 try:
     if "DATABASE_URL" in st.secrets:
-        database_url = st.secrets["DATABASE_URL"]
-        st.write("Usando DATABASE_URL desde secrets")
-        conn = st.connection("postgresql", type="sql", url=database_url)
+        conn = st.connection("postgresql", type="sql", url=st.secrets["DATABASE_URL"])
     elif "connections" in st.secrets and "postgresql" in st.secrets["connections"]:
-        st.write("Usando configuracion postgresql desde secrets")
         conn = st.connection("postgresql", type="sql")
     else:
         st.error("""
@@ -39,45 +25,20 @@ try:
         Por favor, configura los secrets en Streamlit Cloud:
         
         1. Ve a Settings -> Secrets
-        2. Agrega exactamente esto (reemplaza con tus datos):
+        2. Agrega:
         
-        DATABASE_URL = "postgresql://neondb_owner:npg_HeVNIoRv98XA@ep-gentle-resonance-ansup968.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require"
+        DATABASE_URL = "postgresql://usuario:contraseña@host/database?sslmode=require"
         """)
-        connection_error = True
+        st.stop()
     
-    if conn and not connection_error:
-        try:
-            test_query = conn.query("SELECT 1 as test", ttl=0)
-            if not test_query.empty:
-                st.success("Conexion exitosa a la base de datos!")
-            else:
-                connection_error = True
-                error_message = "La consulta de prueba no devolvio resultados"
-        except Exception as query_error:
-            connection_error = True
-            error_message = f"Error en consulta de prueba: {str(query_error)}"
-            
+    # Probar la conexion
+    test_query = conn.query("SELECT 1 as test", ttl=0)
+    if test_query.empty:
+        st.error("No se pudo verificar la conexion a la base de datos")
+        st.stop()
+        
 except Exception as e:
-    connection_error = True
-    error_message = f"Error de conexion: {str(e)}"
-    st.error(f"Error detallado: {error_message}")
-
-if connection_error:
-    st.error(f"""
-    No se pudo conectar a la base de datos.
-    
-    Error: {error_message}
-    
-    SOLUCION:
-    1. Ve a neon.tech y verifica que tu base de datos este activa
-    2. En Streamlit Cloud, ve a Settings -> Secrets
-    3. Elimina cualquier configuracion existente
-    4. Agrega EXACTAMENTE esta linea:
-    
-    DATABASE_URL = "postgresql://neondb_owner:npg_HeVNIoRv98XA@ep-gentle-resonance-ansup968.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require"
-    
-    5. Guarda y espera a que la app se reinicie
-    """)
+    st.error(f"Error de conexion: {str(e)}")
     st.stop()
 
 # --- CATEGORIAS DEFINIDAS ---
@@ -105,34 +66,6 @@ try:
         )
         """))
         
-        try:
-            s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS nombre VARCHAR(255)"))
-        except Exception:
-            pass
-        try:
-            s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS categoria VARCHAR(100)"))
-        except Exception:
-            pass
-        try:
-            s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS ubicacion TEXT"))
-        except Exception:
-            pass
-        try:
-            s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS foto_url TEXT"))
-        except Exception:
-            pass
-        try:
-            s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS resenna_willian TEXT"))
-        except Exception:
-            pass
-        try:
-            s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS estrellas_w INTEGER"))
-        except Exception:
-            pass
-        try:
-            s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS maps_url TEXT"))
-        except Exception:
-            pass
         try:
             s.execute(text("ALTER TABLE comercios ADD COLUMN IF NOT EXISTS visitas INTEGER DEFAULT 0"))
         except Exception:
@@ -177,11 +110,9 @@ try:
         if not res_v:
             s.execute(text("INSERT INTO visitas (id, conteo) VALUES (1, 0)"))
         s.commit()
-        st.success("Tablas creadas/verificadas correctamente")
         
 except Exception as e:
-    st.error(f"ERROR al crear las tablas: {str(e)}")
-    st.info("Por favor, verifica que la base de datos este correctamente configurada y tengas permisos para crear tablas.")
+    st.error(f"Error al crear las tablas: {str(e)}")
     st.stop()
 
 # --- LOGICA DE VISITAS GENERALES ---
@@ -191,17 +122,16 @@ if 'visitado' not in st.session_state:
             s.execute(text("UPDATE visitas SET conteo = conteo + 1 WHERE id = 1"))
             s.commit()
         st.session_state.visitado = True
-    except Exception as e:
-        st.warning(f"Error al actualizar contador de visitas: {e}")
+    except Exception:
+        pass
 
 try:
     res_visitas = conn.query("SELECT conteo FROM visitas WHERE id = 1", ttl=0)
     total_visitas = res_visitas.iloc[0,0] if not res_visitas.empty else 0
-except Exception as e:
+except Exception:
     total_visitas = 0
-    st.warning("No se pudo cargar el contador de visitas")
 
-# --- FUNCION DE IMAGEN OPTIMIZADA (MINIATURAS) ---
+# --- FUNCION DE IMAGEN OPTIMIZADA ---
 def imagen_a_base64(uploaded_file):
     if uploaded_file is not None:
         try:
@@ -329,8 +259,8 @@ with st.sidebar:
         logo_res = conn.query("SELECT logo_data FROM configuracion WHERE id = 1", ttl=0)
         if not logo_res.empty and logo_res.iloc[0,0]:
             st.markdown(f'<div class="logo-container"><img src="{logo_res.iloc[0,0]}" style="width:220px;"></div>', unsafe_allow_html=True)
-    except Exception as e:
-        st.warning("Logo no disponible temporalmente")
+    except Exception:
+        pass
     st.title("Venezuela Gestion")
     opcion_menu = st.radio("Ir a:", ["Ver Guia Comercial", "Administracion"])
     st.markdown("---")
@@ -344,8 +274,8 @@ try:
     logo_res_main = conn.query("SELECT logo_data FROM configuracion WHERE id = 1", ttl=0)
     if not logo_res_main.empty and logo_res_main.iloc[0,0]:
         st.markdown(f'<div class="logo-main-container"><img src="{logo_res_main.iloc[0,0]}" style="width:350px;"></div>', unsafe_allow_html=True)
-except Exception as e:
-    st.warning("Logo no disponible temporalmente")
+except Exception:
+    pass
 
 # --- LOGICA TEMPORAL ---
 ahora_vzla = datetime.utcnow() - timedelta(hours=4)
@@ -408,11 +338,7 @@ elif opcion_menu == "Ver Guia Comercial":
     </div>
     ''', unsafe_allow_html=True)
     
-    try:
-        link_app = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/?embed=true"
-    except:
-        link_app = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/?embed=true"
-    
+    link_app = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/?embed=true"
     whatsapp_url = f"https://api.whatsapp.com/send?text=Mira la Guia Comercial de Santa Teresa! {link_app}"
     col_s1, col_s2 = st.columns(2)
     with col_s1:
@@ -424,22 +350,20 @@ elif opcion_menu == "Ver Guia Comercial":
     busq = st.text_input("Que buscas en Santa Teresa?", placeholder="Ej: Panaderia, Farmacia...")
     tab_labels = ["Todos"] + CAT_LIST
     tabs_main = st.tabs(tab_labels)
+    
     try:
         df = conn.query("SELECT * FROM comercios", ttl=0)
-    except Exception as e:
-        st.error(f"Error al cargar comercios: {e}")
+    except Exception:
         df = pd.DataFrame()
     
     try:
         todas_opiniones = conn.query("SELECT * FROM opiniones ORDER BY id DESC", ttl=0)
-    except Exception as e:
-        st.error(f"Error al cargar opiniones: {e}")
+    except Exception:
         todas_opiniones = pd.DataFrame()
     
     try:
         todas_fotos = conn.query("SELECT * FROM fotos_comercios", ttl=0)
-    except Exception as e:
-        st.error(f"Error al cargar fotos: {e}")
+    except Exception:
         todas_fotos = pd.DataFrame()
 
     for i, tab in enumerate(tabs_main):
@@ -463,8 +387,8 @@ elif opcion_menu == "Ver Guia Comercial":
                                         s.execute(text("UPDATE comercios SET visitas = visitas + 1 WHERE id = :id"), {"id": int(r['id'])})
                                         s.commit()
                                     st.session_state[visit_key] = True
-                                except Exception as e:
-                                    st.error(f"Error al registrar visita: {e}")
+                                except Exception:
+                                    pass
 
                             col_img, col_info = st.columns([1, 2])
                             with col_img:
@@ -476,8 +400,8 @@ elif opcion_menu == "Ver Guia Comercial":
                                     for _, f_row in extras.iterrows():
                                         try:
                                             st.image(f_row['foto_data'], use_container_width=True)
-                                        except Exception as e:
-                                            st.error(f"Error al cargar imagen adicional: {e}")
+                                        except Exception:
+                                            pass
 
                             with col_info:
                                 st.write(f"**Ubicacion:** {r['ubicacion']}")
@@ -487,7 +411,7 @@ elif opcion_menu == "Ver Guia Comercial":
                                     estrellas_w_val = int(r['estrellas_w']) if r['estrellas_w'] is not None and str(r['estrellas_w']).isdigit() else 0
                                     st.write(f"**Calificacion Willian:** {'*' * estrellas_w_val}")
                                 except:
-                                    st.write(f"**Calificacion Willian:** " + "*" * 0)
+                                    st.write(f"**Calificacion Willian:** ")
                                 st.info(f"**Reseña de Willian:** {r['resenna_willian']}")
                                 st.markdown("---")
                                 if not todas_opiniones.empty:
@@ -531,6 +455,7 @@ with st.expander("PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
         st.markdown('<div class="master-panel">', unsafe_allow_html=True)
         m_tab1, m_tab2, m_tab3, m_tab4, m_tab_config = st.tabs(["Denuncias", "Agregar Comercio", "Modificar/Eliminar", "Opiniones", "Configurar App"])
 
+        # --- TAB 1: DENUNCIAS ---
         with m_tab1:
             st.write("### Gestion de Denuncias")
             try:
@@ -585,6 +510,7 @@ with st.expander("PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
                     else:
                         st.error("Completa todos los campos.")
 
+        # --- TAB 2: AGREGAR COMERCIO ---
         with m_tab2:
             st.write("### Registrar Nuevo Comercio")
             with st.form("master_add_form"):
@@ -615,18 +541,15 @@ with st.expander("PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
                                                   {"cid": new_id, "fd": imagen_a_base64(extra)})
                                 s.commit()
                             
-                            st.write("Confirmando guardado en la nube...")
                             verificacion = conn.query("SELECT COUNT(*) FROM comercios", ttl=0)
-                            st.write(f"Total de comercios actuales en la base de datos: {verificacion.iloc[0,0]}")
-                            
-                            st.success("Negocio y fotos añadidos con exito.")
+                            st.success(f"Negocio y fotos añadidos con exito. Total de comercios: {verificacion.iloc[0,0]}")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error al registrar comercio: {e}")
-                            st.exception(e)
                     else:
                         st.error("El nombre del negocio es obligatorio.")
 
+        # --- TAB 3: MODIFICAR / ELIMINAR ---
         with m_tab3:
             try:
                 comercios_master = conn.query("SELECT * FROM comercios", ttl=0)
@@ -680,6 +603,7 @@ with st.expander("PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
             except Exception as e:
                 st.error(f"Error al cargar comercios: {e}")
 
+        # --- TAB 4: OPINIONES ---
         with m_tab4:
             st.write("### Gestion de Opiniones de Usuarios")
             try:
@@ -710,6 +634,7 @@ with st.expander("PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
             except Exception as e:
                 st.error(f"Error al cargar opiniones: {e}")
 
+        # --- TAB CONFIG: LOGO ---
         with m_tab_config:
             st.write("### Configurar Logo de la App")
             try:
