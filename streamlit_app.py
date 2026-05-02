@@ -631,7 +631,8 @@ with st.expander("PANEL DE CONTROL MAESTRO (Acceso Restringido)"):
                     opcion_edit = st.selectbox("Seleccione Comercio para gestionar:", comercios_master['nombre'].tolist())
                     target = comercios_master[comercios_master['nombre'] == opcion_edit].iloc[0]
                     
-                    v_count = target.get('visitas', 0) or 0                    st.write(f"**Visitas registradas para este local:** {v_count}")
+                    v_count = target.get('visitas', 0) or 0
+                    st.write(f"**Visitas registradas para este local:** {v_count}")
                     
                     with st.form("master_edit_form"):
                         new_n = st.text_input("Nombre", value=target['nombre'] if target['nombre'] else "")
