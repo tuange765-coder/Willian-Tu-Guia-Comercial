@@ -106,6 +106,19 @@ try:
         """))
         s.execute(text("CREATE TABLE IF NOT EXISTS configuracion (id INTEGER PRIMARY KEY, logo_data TEXT)"))
         
+        # --- NUEVA TABLA PARA EL CONTADOR ESPECIAL (INICIA EN 1500) ---
+        s.execute(text("""
+        CREATE TABLE IF NOT EXISTS contador_app (
+            id INTEGER PRIMARY KEY,
+            valor INTEGER DEFAULT 1500
+        )
+        """))
+        
+        # Verificar si existe el registro, si no, crearlo con valor 1500
+        res_cont = s.execute(text("SELECT valor FROM contador_app WHERE id = 1")).fetchone()
+        if not res_cont:
+            s.execute(text("INSERT INTO contador_app (id, valor) VALUES (1, 1500)"))
+        
         res_v = s.execute(text("SELECT conteo FROM visitas WHERE id = 1")).fetchone()
         if not res_v:
             s.execute(text("INSERT INTO visitas (id, conteo) VALUES (1, 0)"))
@@ -130,6 +143,22 @@ try:
     total_visitas = res_visitas.iloc[0,0] if not res_visitas.empty else 0
 except Exception:
     total_visitas = 0
+
+# --- NUEVO: CONTADOR QUE COMIENZA EN 1500 Y SUMA +1 CADA VEZ ---
+if 'contador_registrado' not in st.session_state:
+    try:
+        with conn.session as s:
+            s.execute(text("UPDATE contador_app SET valor = valor + 1 WHERE id = 1"))
+            s.commit()
+        st.session_state.contador_registrado = True
+    except Exception:
+        pass
+
+try:
+    res_contador = conn.query("SELECT valor FROM contador_app WHERE id = 1", ttl=0)
+    contador_especial = res_contador.iloc[0,0] if not res_contador.empty else 1500
+except Exception:
+    contador_especial = 1500
 
 # --- FUNCION DE IMAGEN OPTIMIZADA ---
 def imagen_a_base64(uploaded_file):
@@ -392,6 +421,20 @@ with st.sidebar:
         pass
     st.title("Venezuela Gestion")
     
+    # MOSTRAR CONTADOR ESPECIAL EN EL SIDEBAR
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #ffcc00, #ff9900); 
+                padding: 15px; 
+                border-radius: 15px; 
+                text-align: center;
+                margin: 10px 0;
+                border: 2px solid #ffffff;">
+        <span style="color: #000000; font-weight: bold; font-size: 1.2rem;">🏆 CONTADOR APP</span><br>
+        <span style="color: #000000; font-weight: bold; font-size: 2rem;">{contador_especial}</span><br>
+        <span style="color: #000000; font-size: 0.8rem;">Veces que se ha abierto esta app</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Enlace directo para que los usuarios accedan a la app
     app_url = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/"
     st.markdown(f"""
@@ -492,9 +535,7 @@ with st.sidebar:
                         else:
                             st.error("Nombre requerido")
             
-            # =========================================================
-            # TAB EDICION Y ELIMINACION - CORREGIDO Y SEPARADO
-            # =========================================================
+            # TAB EDICION Y ELIMINACION - CON BOTON DE ELIMINAR VISIBLE
             with tab_admin3:
                 st.write("### ✏️ Editar Comercio")
                 try:
@@ -503,7 +544,7 @@ with st.sidebar:
                     if not comercios_list.empty:
                         comercio_nombres = comercios_list['nombre'].tolist()
                         
-                        # ---------- SECCION DE EDICION (FORMULARIO SEPARADO) ----------
+                        # SECCION DE EDICION
                         st.markdown("#### Selecciona el comercio a EDITAR")
                         sel_comercio_edit = st.selectbox(
                             "Comercio para editar", 
@@ -513,7 +554,6 @@ with st.sidebar:
                         
                         target_edit = comercios_list[comercios_list['nombre'] == sel_comercio_edit].iloc[0]
                         
-                        # Obtener datos completos del comercio seleccionado
                         datos_comercio = conn.query(
                             "SELECT * FROM comercios WHERE id = :id", 
                             params={"id": int(target_edit['id'])}, 
@@ -523,7 +563,6 @@ with st.sidebar:
                         if not datos_comercio.empty:
                             row = datos_comercio.iloc[0]
                             
-                            # Formulario de edicion (INDEPENDIENTE)
                             with st.form(key="form_editar_comercio"):
                                 st.markdown(f"**Editando: {row['nombre']}**")
                                 
@@ -534,7 +573,6 @@ with st.sidebar:
                                     index=CAT_LIST.index(row['categoria']) if row['categoria'] in CAT_LIST else 0,
                                     key="edit_cat"
                                 )
-                                # Manejar valor None para ubicacion
                                 ubicacion_actual = row['ubicacion'] if row['ubicacion'] is not None else ""
                                 new_ub = st.text_input("Ubicacion", value=ubicacion_actual)
                                 
@@ -547,7 +585,6 @@ with st.sidebar:
                                 resenna_actual = row['resenna_willian'] if row['resenna_willian'] is not None else ""
                                 new_res = st.text_area("Reseña", value=resenna_actual)
                                 
-                                # Boton de guardar dentro del formulario
                                 submitted_edit = st.form_submit_button("💾 Guardar Cambios", use_container_width=True)
                                 
                                 if submitted_edit:
@@ -566,7 +603,7 @@ with st.sidebar:
                                     st.success(f"✅ Comercio '{new_n}' actualizado correctamente")
                                     st.rerun()
                         
-                        # ---------- SECCION DE ELIMINACION (COMPLETAMENTE SEPARADA) ----------
+                        # SECCION DE ELIMINACION - CON BOTON VISIBLE Y CONFIRMACION
                         st.markdown("---")
                         st.markdown("### 🗑️ Eliminar Comercio")
                         st.warning("⚠️ Esta acción es irreversible. Se eliminarán también las fotos y opiniones asociadas.")
@@ -579,45 +616,36 @@ with st.sidebar:
                         
                         target_delete = comercios_list[comercios_list['nombre'] == sel_comercio_delete].iloc[0]
                         
-                        # Mostrar confirmacion visual
                         st.info(f"📌 Comercio seleccionado: **{target_delete['nombre']}**")
                         
-                        # Doble confirmacion para evitar eliminaciones accidentales
+                        # Confirmacion escribiendo ELIMINAR
                         confirmar_texto = st.text_input(
-                            f"Escribe ELIMINAR para confirmar la eliminación de '{target_delete['nombre']}'",
+                            f"Escribe **ELIMINAR** para confirmar la eliminación de '{target_delete['nombre']}'",
                             key="confirm_delete_input"
                         )
                         
-                        col_del1, col_del2 = st.columns(2)
-                        with col_del1:
-                            if st.button("🗑️ ELIMINAR Comercio", type="secondary", key="btn_delete_comercio_final"):
-                                if confirmar_texto == "ELIMINAR":
-                                    with conn.session as s:
-                                        # Eliminar fotos relacionadas
-                                        s.execute(text("DELETE FROM fotos_comercios WHERE comercio_id=:id"), 
-                                                 {"id": int(target_delete['id'])})
-                                        # Eliminar opiniones relacionadas
-                                        s.execute(text("DELETE FROM opiniones WHERE comercio_id=:id"), 
-                                                 {"id": int(target_delete['id'])})
-                                        # Eliminar el comercio
-                                        s.execute(text("DELETE FROM comercios WHERE id=:id"), 
-                                                 {"id": int(target_delete['id'])})
-                                        s.commit()
-                                    st.success(f"✅ Comercio '{target_delete['nombre']}' eliminado correctamente")
-                                    st.rerun()
-                                elif confirmar_texto:
-                                    st.error("❌ Escribe exactamente 'ELIMINAR' para confirmar")
-                        with col_del2:
-                            st.caption("")  # Espaciador
-                            
+                        # BOTON DE ELIMINAR - CLARAMENTE VISIBLE
+                        if st.button("🗑️ ELIMINAR Comercio", type="secondary", key="btn_delete_comercio_final", use_container_width=True):
+                            if confirmar_texto == "ELIMINAR":
+                                with conn.session as s:
+                                    s.execute(text("DELETE FROM fotos_comercios WHERE comercio_id=:id"), 
+                                             {"id": int(target_delete['id'])})
+                                    s.execute(text("DELETE FROM opiniones WHERE comercio_id=:id"), 
+                                             {"id": int(target_delete['id'])})
+                                    s.execute(text("DELETE FROM comercios WHERE id=:id"), 
+                                             {"id": int(target_delete['id'])})
+                                    s.commit()
+                                st.success(f"✅ Comercio '{target_delete['nombre']}' eliminado correctamente")
+                                st.rerun()
+                            elif confirmar_texto:
+                                st.error("❌ No se eliminó. Escribe exactamente 'ELIMINAR' para confirmar")
+                            else:
+                                st.warning("✏️ Escribe 'ELIMINAR' en el campo de texto y luego presiona el botón")
                     else:
                         st.info("No hay comercios registrados para editar o eliminar.")
                         
                 except Exception as e:
                     st.error(f"Error al cargar comercios: {str(e)}")
-            # =========================================================
-            # FIN DE LA SECCION CORREGIDA
-            # =========================================================
             
             with tab_admin4:
                 st.write("### Gestion de Opiniones")
@@ -713,13 +741,14 @@ for fecha, nombre in festivos_2026:
         proximo_festivo = f"{nombre} ({fecha.strftime('%d/%m')})"
         break
 
-# Panel de estadisticas y fecha
+# Panel de estadisticas y fecha (incluye el contador especial)
 st.markdown(f'''
 <div class="stats-panel">
 <span style="color:#ffcc00; font-size:1.1em; font-weight:bold;">{dias_semana[ahora_vzla.weekday()]}, {ahora_vzla.day} de {meses[ahora_vzla.month-1]} de {ahora_vzla.year}
 </span><br>
 <b style="color:#ffffff; font-size:1.4em;">{ahora_vzla.strftime("%I:%M %p")}</b><br>
 <span style="font-size:1.2em; border-top: 1px solid #444; padding-top:5px; display:block; margin-top:5px; color:#ffffff;">VISITAS TOTALES: {total_visitas}</span>
+<span style="font-size:1.1em; color:#ffcc00; display:block; margin-top:5px;">🏆 APERTURAS DE APP: {contador_especial}</span>
 </div>
 ''', unsafe_allow_html=True)
 
