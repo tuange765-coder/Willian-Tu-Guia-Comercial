@@ -116,7 +116,7 @@ except Exception as e:
     st.error(f"Error al crear las tablas: {str(e)}")
     st.stop()
 
-# --- LOGICA DE VISITAS TOTALES (COMIENZA EN 1500) ---
+# --- LOGICA DE VISITAS TOTALES (COMIENZA EN 1500 Y SUMA +1 CADA VEZ) ---
 if 'visitado' not in st.session_state:
     try:
         with conn.session as s:
@@ -699,7 +699,7 @@ for fecha, nombre in festivos_2026:
         proximo_festivo = f"{nombre} ({fecha.strftime('%d/%m')})"
         break
 
-# Panel de estadisticas y fecha (SOLO VISITAS TOTALES, ya no muestra contador especial)
+# Panel de estadisticas y fecha (el contador suma +1 cada vez que se abre la app, empezando desde 1500)
 st.markdown(f'''
 <div class="stats-panel">
 <span style="color:#ffcc00; font-size:1.1em; font-weight:bold;">{dias_semana[ahora_vzla.weekday()]}, {ahora_vzla.day} de {meses[ahora_vzla.month-1]} de {ahora_vzla.year}
