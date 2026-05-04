@@ -492,40 +492,132 @@ with st.sidebar:
                         else:
                             st.error("Nombre requerido")
             
+            # =========================================================
+            # TAB EDICION Y ELIMINACION - CORREGIDO Y SEPARADO
+            # =========================================================
             with tab_admin3:
-                st.write("### Editar/Eliminar Comercio")
+                st.write("### ✏️ Editar Comercio")
                 try:
-                    comercios_list = conn.query("SELECT id, nombre, categoria FROM comercios", ttl=0)
+                    comercios_list = conn.query("SELECT id, nombre, categoria FROM comercios ORDER BY nombre", ttl=0)
+                    
                     if not comercios_list.empty:
                         comercio_nombres = comercios_list['nombre'].tolist()
-                        sel_comercio = st.selectbox("Seleccionar", comercio_nombres)
-                        target = comercios_list[comercios_list['nombre'] == sel_comercio].iloc[0]
                         
-                        with st.form("edit_comercio"):
-                            new_n = st.text_input("Nombre", value=target['nombre'])
-                            new_cat = st.selectbox("Categoria", CAT_LIST, index=CAT_LIST.index(target['categoria']) if target['categoria'] in CAT_LIST else 0)
-                            new_ub = st.text_input("Ubicacion", value=target['ubicacion'])
-                            new_maps = st.text_input("Google Maps URL", value=target['maps_url'])
-                            new_est = st.slider("Calificacion", 1, 5, int(target['estrellas_w']) if target['estrellas_w'] else 3)
-                            new_res = st.text_area("Reseña", value=target['resenna_willian'])
-                            if st.form_submit_button("Guardar"):
-                                with conn.session as s:
-                                    s.execute(text("UPDATE comercios SET nombre=:n, categoria=:c, ubicacion=:u, resenna_willian=:r, estrellas_w=:e, maps_url=:m WHERE id=:id"),
-                                              {"n": new_n, "c": new_cat, "u": new_ub, "r": new_res, "e": new_est, "m": new_maps, "id": int(target['id'])})
-                                    s.commit()
-                                st.success("Actualizado")
-                                st.rerun()
+                        # ---------- SECCION DE EDICION (FORMULARIO SEPARADO) ----------
+                        st.markdown("#### Selecciona el comercio a EDITAR")
+                        sel_comercio_edit = st.selectbox(
+                            "Comercio para editar", 
+                            comercio_nombres, 
+                            key="select_edit_comercio"
+                        )
                         
-                        if st.button("Eliminar Comercio", type="secondary"):
-                            with conn.session as s:
-                                s.execute(text("DELETE FROM fotos_comercios WHERE comercio_id=:id"), {"id": int(target['id'])})
-                                s.execute(text("DELETE FROM opiniones WHERE comercio_id=:id"), {"id": int(target['id'])})
-                                s.execute(text("DELETE FROM comercios WHERE id=:id"), {"id": int(target['id'])})
-                                s.commit()
-                            st.success("Eliminado")
-                            st.rerun()
+                        target_edit = comercios_list[comercios_list['nombre'] == sel_comercio_edit].iloc[0]
+                        
+                        # Obtener datos completos del comercio seleccionado
+                        datos_comercio = conn.query(
+                            "SELECT * FROM comercios WHERE id = :id", 
+                            params={"id": int(target_edit['id'])}, 
+                            ttl=0
+                        )
+                        
+                        if not datos_comercio.empty:
+                            row = datos_comercio.iloc[0]
+                            
+                            # Formulario de edicion (INDEPENDIENTE)
+                            with st.form(key="form_editar_comercio"):
+                                st.markdown(f"**Editando: {row['nombre']}**")
+                                
+                                new_n = st.text_input("Nombre", value=row['nombre'] if row['nombre'] else "")
+                                new_cat = st.selectbox(
+                                    "Categoria", 
+                                    CAT_LIST, 
+                                    index=CAT_LIST.index(row['categoria']) if row['categoria'] in CAT_LIST else 0,
+                                    key="edit_cat"
+                                )
+                                # Manejar valor None para ubicacion
+                                ubicacion_actual = row['ubicacion'] if row['ubicacion'] is not None else ""
+                                new_ub = st.text_input("Ubicacion", value=ubicacion_actual)
+                                
+                                maps_actual = row['maps_url'] if row['maps_url'] is not None else ""
+                                new_maps = st.text_input("Google Maps URL", value=maps_actual)
+                                
+                                estrellas_actual = int(row['estrellas_w']) if row['estrellas_w'] is not None else 3
+                                new_est = st.slider("Calificacion", 1, 5, estrellas_actual, key="edit_est")
+                                
+                                resenna_actual = row['resenna_willian'] if row['resenna_willian'] is not None else ""
+                                new_res = st.text_area("Reseña", value=resenna_actual)
+                                
+                                # Boton de guardar dentro del formulario
+                                submitted_edit = st.form_submit_button("💾 Guardar Cambios", use_container_width=True)
+                                
+                                if submitted_edit:
+                                    with conn.session as s:
+                                        s.execute(text("""
+                                            UPDATE comercios 
+                                            SET nombre=:n, categoria=:c, ubicacion=:u, 
+                                                resenna_willian=:r, estrellas_w=:e, maps_url=:m 
+                                            WHERE id=:id
+                                        """), {
+                                            "n": new_n, "c": new_cat, "u": new_ub, 
+                                            "r": new_res, "e": new_est, "m": new_maps, 
+                                            "id": int(row['id'])
+                                        })
+                                        s.commit()
+                                    st.success(f"✅ Comercio '{new_n}' actualizado correctamente")
+                                    st.rerun()
+                        
+                        # ---------- SECCION DE ELIMINACION (COMPLETAMENTE SEPARADA) ----------
+                        st.markdown("---")
+                        st.markdown("### 🗑️ Eliminar Comercio")
+                        st.warning("⚠️ Esta acción es irreversible. Se eliminarán también las fotos y opiniones asociadas.")
+                        
+                        sel_comercio_delete = st.selectbox(
+                            "Selecciona el comercio a ELIMINAR", 
+                            comercio_nombres, 
+                            key="select_delete_comercio"
+                        )
+                        
+                        target_delete = comercios_list[comercios_list['nombre'] == sel_comercio_delete].iloc[0]
+                        
+                        # Mostrar confirmacion visual
+                        st.info(f"📌 Comercio seleccionado: **{target_delete['nombre']}**")
+                        
+                        # Doble confirmacion para evitar eliminaciones accidentales
+                        confirmar_texto = st.text_input(
+                            f"Escribe ELIMINAR para confirmar la eliminación de '{target_delete['nombre']}'",
+                            key="confirm_delete_input"
+                        )
+                        
+                        col_del1, col_del2 = st.columns(2)
+                        with col_del1:
+                            if st.button("🗑️ ELIMINAR Comercio", type="secondary", key="btn_delete_comercio_final"):
+                                if confirmar_texto == "ELIMINAR":
+                                    with conn.session as s:
+                                        # Eliminar fotos relacionadas
+                                        s.execute(text("DELETE FROM fotos_comercios WHERE comercio_id=:id"), 
+                                                 {"id": int(target_delete['id'])})
+                                        # Eliminar opiniones relacionadas
+                                        s.execute(text("DELETE FROM opiniones WHERE comercio_id=:id"), 
+                                                 {"id": int(target_delete['id'])})
+                                        # Eliminar el comercio
+                                        s.execute(text("DELETE FROM comercios WHERE id=:id"), 
+                                                 {"id": int(target_delete['id'])})
+                                        s.commit()
+                                    st.success(f"✅ Comercio '{target_delete['nombre']}' eliminado correctamente")
+                                    st.rerun()
+                                elif confirmar_texto:
+                                    st.error("❌ Escribe exactamente 'ELIMINAR' para confirmar")
+                        with col_del2:
+                            st.caption("")  # Espaciador
+                            
+                    else:
+                        st.info("No hay comercios registrados para editar o eliminar.")
+                        
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Error al cargar comercios: {str(e)}")
+            # =========================================================
+            # FIN DE LA SECCION CORREGIDA
+            # =========================================================
             
             with tab_admin4:
                 st.write("### Gestion de Opiniones")
@@ -727,7 +819,8 @@ for i, tab in enumerate(tabs_main):
                                         pass
 
                         with col_info:
-                            st.write(f"**Ubicacion:** {r['ubicacion']}")
+                            ubicacion_val = r['ubicacion'] if r['ubicacion'] is not None else "No especificada"
+                            st.write(f"**Ubicacion:** {ubicacion_val}")
                             if r['maps_url']:
                                 st.link_button("IR A ESTA UBICACION (Google Maps)", r['maps_url'], type="primary", use_container_width=True)
                             try:
@@ -735,7 +828,9 @@ for i, tab in enumerate(tabs_main):
                                 st.write(f"**Calificacion Willian:** {'*' * estrellas_w_val}")
                             except:
                                 st.write(f"**Calificacion Willian:** ")
-                            st.info(f"**Reseña de Willian:** {r['resenna_willian']}")
+                            
+                            resenna_val = r['resenna_willian'] if r['resenna_willian'] is not None else "Sin reseña"
+                            st.info(f"**Reseña de Willian:** {resenna_val}")
                             st.markdown("---")
                             if not todas_opiniones.empty:
                                 op_df = todas_opiniones[todas_opiniones['comercio_id'] == r['id']]
