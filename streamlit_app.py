@@ -106,29 +106,17 @@ try:
         """))
         s.execute(text("CREATE TABLE IF NOT EXISTS configuracion (id INTEGER PRIMARY KEY, logo_data TEXT)"))
         
-        # --- NUEVA TABLA PARA EL CONTADOR ESPECIAL (INICIA EN 1500) ---
-        s.execute(text("""
-        CREATE TABLE IF NOT EXISTS contador_app (
-            id INTEGER PRIMARY KEY,
-            valor INTEGER DEFAULT 1500
-        )
-        """))
-        
-        # Verificar si existe el registro, si no, crearlo con valor 1500
-        res_cont = s.execute(text("SELECT valor FROM contador_app WHERE id = 1")).fetchone()
-        if not res_cont:
-            s.execute(text("INSERT INTO contador_app (id, valor) VALUES (1, 1500)"))
-        
+        # Verificar si existe el registro de visitas, si no, crearlo con valor 1500
         res_v = s.execute(text("SELECT conteo FROM visitas WHERE id = 1")).fetchone()
         if not res_v:
-            s.execute(text("INSERT INTO visitas (id, conteo) VALUES (1, 0)"))
+            s.execute(text("INSERT INTO visitas (id, conteo) VALUES (1, 1500)"))
         s.commit()
         
 except Exception as e:
     st.error(f"Error al crear las tablas: {str(e)}")
     st.stop()
 
-# --- LOGICA DE VISITAS GENERALES ---
+# --- LOGICA DE VISITAS TOTALES (COMIENZA EN 1500) ---
 if 'visitado' not in st.session_state:
     try:
         with conn.session as s:
@@ -140,25 +128,9 @@ if 'visitado' not in st.session_state:
 
 try:
     res_visitas = conn.query("SELECT conteo FROM visitas WHERE id = 1", ttl=0)
-    total_visitas = res_visitas.iloc[0,0] if not res_visitas.empty else 0
+    total_visitas = res_visitas.iloc[0,0] if not res_visitas.empty else 1500
 except Exception:
-    total_visitas = 0
-
-# --- NUEVO: CONTADOR QUE COMIENZA EN 1500 Y SUMA +1 CADA VEZ ---
-if 'contador_registrado' not in st.session_state:
-    try:
-        with conn.session as s:
-            s.execute(text("UPDATE contador_app SET valor = valor + 1 WHERE id = 1"))
-            s.commit()
-        st.session_state.contador_registrado = True
-    except Exception:
-        pass
-
-try:
-    res_contador = conn.query("SELECT valor FROM contador_app WHERE id = 1", ttl=0)
-    contador_especial = res_contador.iloc[0,0] if not res_contador.empty else 1500
-except Exception:
-    contador_especial = 1500
+    total_visitas = 1500
 
 # --- FUNCION DE IMAGEN OPTIMIZADA ---
 def imagen_a_base64(uploaded_file):
@@ -420,20 +392,6 @@ with st.sidebar:
     except Exception:
         pass
     st.title("Venezuela Gestion")
-    
-    # MOSTRAR CONTADOR ESPECIAL EN EL SIDEBAR
-    st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #ffcc00, #ff9900); 
-                padding: 15px; 
-                border-radius: 15px; 
-                text-align: center;
-                margin: 10px 0;
-                border: 2px solid #ffffff;">
-        <span style="color: #000000; font-weight: bold; font-size: 1.2rem;">🏆 CONTADOR APP</span><br>
-        <span style="color: #000000; font-weight: bold; font-size: 2rem;">{contador_especial}</span><br>
-        <span style="color: #000000; font-size: 0.8rem;">Veces que se ha abierto esta app</span>
-    </div>
-    """, unsafe_allow_html=True)
     
     # Enlace directo para que los usuarios accedan a la app
     app_url = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/"
@@ -741,14 +699,13 @@ for fecha, nombre in festivos_2026:
         proximo_festivo = f"{nombre} ({fecha.strftime('%d/%m')})"
         break
 
-# Panel de estadisticas y fecha (incluye el contador especial)
+# Panel de estadisticas y fecha (SOLO VISITAS TOTALES, ya no muestra contador especial)
 st.markdown(f'''
 <div class="stats-panel">
 <span style="color:#ffcc00; font-size:1.1em; font-weight:bold;">{dias_semana[ahora_vzla.weekday()]}, {ahora_vzla.day} de {meses[ahora_vzla.month-1]} de {ahora_vzla.year}
 </span><br>
 <b style="color:#ffffff; font-size:1.4em;">{ahora_vzla.strftime("%I:%M %p")}</b><br>
 <span style="font-size:1.2em; border-top: 1px solid #444; padding-top:5px; display:block; margin-top:5px; color:#ffffff;">VISITAS TOTALES: {total_visitas}</span>
-<span style="font-size:1.1em; color:#ffcc00; display:block; margin-top:5px;">🏆 APERTURAS DE APP: {contador_especial}</span>
 </div>
 ''', unsafe_allow_html=True)
 
