@@ -394,7 +394,7 @@ with st.sidebar:
     st.title("Venezuela Gestion")
     
     # Enlace directo para que los usuarios accedan a la app
-    app_url = "https://guia-comercial-almenar-cpe3yfntxmzncn2e7wgueh.streamlit.app/"
+    app_url = "https://williantuguiasantateresa.streamlit.app/"
     st.markdown(f"""
     <div style="text-align: center; margin: 20px 0;">
         <a href="{app_url}" target="_blank" style="text-decoration: none;">
@@ -655,7 +655,7 @@ with st.sidebar:
                         st.success("Logo guardado")
                         st.rerun()
 
-# --- ENCABEZADO PRINCIPAL (SOLO VISIBLE PARA USUARIOS NORMALES) ---
+# --- ENCABEZADO PRINCIPAL ---
 st.markdown('<div class="venezuela-header"><div class="stars-arc">★★★★★★★★</div></div>', unsafe_allow_html=True)
 
 # --- LOGO CENTRADO ---
@@ -699,13 +699,13 @@ for fecha, nombre in festivos_2026:
         proximo_festivo = f"{nombre} ({fecha.strftime('%d/%m')})"
         break
 
-# Panel de estadisticas y fecha (el contador suma +1 cada vez que se abre la app, empezando desde 1500)
+# Panel de estadisticas y fecha (el contador ya suma +1 automáticamente)
 st.markdown(f'''
 <div class="stats-panel">
 <span style="color:#ffcc00; font-size:1.1em; font-weight:bold;">{dias_semana[ahora_vzla.weekday()]}, {ahora_vzla.day} de {meses[ahora_vzla.month-1]} de {ahora_vzla.year}
 </span><br>
 <b style="color:#ffffff; font-size:1.4em;">{ahora_vzla.strftime("%I:%M %p")}</b><br>
-<span style="font-size:1.2em; border-top: 1px solid #444; padding-top:5px; display:block; margin-top:5px; color:#ffffff;">VISITAS TOTALES: {total_visitas}</span>
+<span style="font-size:1.2em; border-top: 1px solid #444; padding-top:5px; display:block; margin-top:5px; color:#ffffff;">🇻🇪 VISITAS TOTALES: {total_visitas}</span>
 </div>
 ''', unsafe_allow_html=True)
 
@@ -735,10 +735,10 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-# --- GUIA COMERCIAL (CONTENIDO PRINCIPAL PARA USUARIOS) ---
+# --- GUIA COMERCIAL ---
 st.title("Guia Comercial Almenar")
 
-# --- ENLACES ACTUALIZADOS ---
+# --- ENLACES ---
 link_app = "https://williantuguiasantateresa.streamlit.app/"
 whatsapp_url = f"https://api.whatsapp.com/send?text=Mira la Guia Comercial de Santa Teresa! {link_app}"
 col_s1, col_s2 = st.columns(2)
