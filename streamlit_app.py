@@ -41,13 +41,145 @@ except Exception as e:
     st.error(f"Error de conexion: {str(e)}")
     st.stop()
 
-# --- CATEGORIAS DEFINIDAS ---
+# --- CATEGORIAS DEFINIDAS (se agrega "Comercio" y "Ente Publico") ---
 CAT_LIST = [
     "Salud", "Laboratorios", "Opticas", "Farmacias", "Dulcerias",
     "Comida Rapida", "Panaderias", "Charcuterias", "Carnicerias",
     "Ferreterias", "Zapaterias", "Electrodomesticos", "Fibras Opticas",
-    "Taxis", "Mototaxis", "Servicios", "Entes Publicos", "Otros"
+    "Taxis", "Mototaxis", "Servicios", "Entes Publicos", "Comercio", "Otros"
 ]
+
+# --- FUNCION PARA AGREGAR COMERCIOS PREDETERMINADOS ---
+def agregar_comercios_predeterminados():
+    """Agrega los comercios y entes publicos solicitados si no existen"""
+    try:
+        with conn.session as s:
+            # Verificar si ya existe alguno de los comercios
+            negocios_existentes = s.execute(text("""
+                SELECT COUNT(*) FROM comercios 
+                WHERE nombre IN ('Corpoelec - Oficina Comercial', 'Fiscalia Municipal', 'Policia Municipal', 
+                                'IAPEM', 'CICPC - Delegacion Municipal', 'Tribunales de Santa Teresa', 
+                                'Hidrocapital - Oficina Comercial', 'Unicasa', 'Traki', 'La Total', 
+                                'El Castillo', 'El Palacio del Blumer')
+            """)).fetchone()
+            
+            if negocios_existentes[0] == 0:
+                comercios_predeterminados = [
+                    # Entes Públicos
+                    {
+                        "nombre": "Corpoelec - Oficina Comercial",
+                        "categoria": "Entes Publicos",
+                        "ubicacion": "Av. Bolivar, Centro Comercial Santa Teresa, Local 2, Santa Teresa del Tuy",
+                        "resenna": "Oficina comercial de Corpoelec en Santa Teresa del Tuy. Atencion al publico para tramites de luz, reclamos y pagos.",
+                        "estrellas": 5,
+                        "maps_url": "https://maps.google.com/?q=10.234167,-66.664722"
+                    },
+                    {
+                        "nombre": "Fiscalia Municipal",
+                        "categoria": "Entes Publicos",
+                        "ubicacion": "Calle Miranda, Edificio Fiscalia, Santa Teresa del Tuy",
+                        "resenna": "Sede de la Fiscalia Municipal de Santa Teresa del Tuy. Atencion al publico para denuncias y tramites legales.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.233333,-66.666667"
+                    },
+                    {
+                        "nombre": "Policia Municipal",
+                        "categoria": "Entes Publicos",
+                        "ubicacion": "Av. Intercomunal, Sector La Esperanza, Santa Teresa del Tuy",
+                        "resenna": "Comando de la Policia Municipal de Santa Teresa del Tuy. Seguridad ciudadana y atencion al publico.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.235000,-66.665000"
+                    },
+                    {
+                        "nombre": "IAPEM",
+                        "categoria": "Entes Publicos",
+                        "ubicacion": "Av. Principal, Zona Industrial, Santa Teresa del Tuy",
+                        "resenna": "Instituto Autonomo de Policia del Estado Miranda. Formacion y gestion policial.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.236000,-66.666000"
+                    },
+                    {
+                        "nombre": "CICPC - Delegacion Municipal",
+                        "categoria": "Entes Publicos",
+                        "ubicacion": "Calle Sucre, Edificio CICPC, Santa Teresa del Tuy",
+                        "resenna": "Delegacion del Cuerpo de Investigaciones Cientificas, Penales y Criminalisticas. Investigacion de delitos.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.237000,-66.667000"
+                    },
+                    {
+                        "nombre": "Tribunales de Santa Teresa",
+                        "categoria": "Entes Publicos",
+                        "ubicacion": "Av. Romulo Gallegos, Palacio de Justicia, Santa Teresa del Tuy",
+                        "resenna": "Sede de los Tribunales de Santa Teresa del Tuy. Administracion de justicia.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.238000,-66.668000"
+                    },
+                    {
+                        "nombre": "Hidrocapital - Oficina Comercial",
+                        "categoria": "Entes Publicos",
+                        "ubicacion": "Av. Bolivar, Centro Comercial Los Proceres, Santa Teresa del Tuy",
+                        "resenna": "Oficina comercial de Hidrocapital en Santa Teresa del Tuy. Atencion para tramites de agua, pagos y reclamos.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.239000,-66.669000"
+                    },
+                    # Comercios
+                    {
+                        "nombre": "Unicasa",
+                        "categoria": "Comercio",
+                        "ubicacion": "Av. Intercomunal, Centro Comercial Santa Teresa Mall, Planta Baja",
+                        "resenna": "Hipermercado con gran variedad de productos alimenticios, limpieza, electrodomesticos y mas. Excelentes precios y promociones.",
+                        "estrellas": 5,
+                        "maps_url": "https://maps.google.com/?q=10.240000,-66.670000"
+                    },
+                    {
+                        "nombre": "Traki",
+                        "categoria": "Comercio",
+                        "ubicacion": "Av. Principal, Centro Comercial Las Americas, Local 1",
+                        "resenna": "Tienda por departamentos con variedad en textiles, electrodomesticos, jugueteria, ferreteria y articulos para el hogar.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.241000,-66.671000"
+                    },
+                    {
+                        "nombre": "La Total",
+                        "categoria": "Comercio",
+                        "ubicacion": "Av. Bolivar, Centro Comercial El Paseo, Piso 1",
+                        "resenna": "Tienda de electrodomesticos, electronica, linea blanca y tecnologia. Las mejores marcas y financiamiento.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.242000,-66.672000"
+                    },
+                    {
+                        "nombre": "El Castillo",
+                        "categoria": "Comercio",
+                        "ubicacion": "Calle Bolivar, Local 5, Santa Teresa del Tuy",
+                        "resenna": "Tienda de ropa, calzado y accesorios para toda la familia. Moda y calidad a buen precio.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.243000,-66.673000"
+                    },
+                    {
+                        "nombre": "El Palacio del Blumer",
+                        "categoria": "Comercio",
+                        "ubicacion": "Av. Bolivar, Local 15, Santa Teresa del Tuy",
+                        "resenna": "Tienda especializada in blumer, ropa interior, lenceria y prendas intimas para damas y caballeros. Gran variedad y calidad.",
+                        "estrellas": 4,
+                        "maps_url": "https://maps.google.com/?q=10.244000,-66.674000"
+                    }
+                ]
+                
+                for c in comercios_predeterminados:
+                    s.execute(text("""
+                        INSERT INTO comercios (nombre, categoria, ubicacion, resenna_willian, estrellas_w, maps_url, visitas)
+                        VALUES (:n, :c, :u, :r, :e, :m, 0)
+                    """), {
+                        "n": c["nombre"],
+                        "c": c["categoria"],
+                        "u": c["ubicacion"],
+                        "r": c["resenna"],
+                        "e": c["estrellas"],
+                        "m": c["maps_url"]
+                    })
+                s.commit()
+    except Exception as e:
+        pass
 
 # --- CREACION DE TABLAS ---
 try:
@@ -106,7 +238,6 @@ try:
         """))
         s.execute(text("CREATE TABLE IF NOT EXISTS configuracion (id INTEGER PRIMARY KEY, logo_data TEXT)"))
         
-        # Verificar si existe el registro de visitas, si no, crearlo con valor 1500
         res_v = s.execute(text("SELECT conteo FROM visitas WHERE id = 1")).fetchone()
         if not res_v:
             s.execute(text("INSERT INTO visitas (id, conteo) VALUES (1, 1500)"))
@@ -115,6 +246,9 @@ try:
 except Exception as e:
     st.error(f"Error al crear las tablas: {str(e)}")
     st.stop()
+
+# --- AGREGAR COMERCIOS PREDETERMINADOS (NO BORRA LOS EXISTENTES) ---
+agregar_comercios_predeterminados()
 
 # --- LOGICA DE VISITAS TOTALES (COMIENZA EN 1500 Y SUMA +1 CADA VEZ) ---
 if 'visitado' not in st.session_state:
@@ -163,7 +297,6 @@ def obtener_efemerides():
     dia = hoy.day
     mes = hoy.month
     
-    # Efemerides de Venezuela por fecha especifica
     efemerides_venezuela_especificas = {
         (1, 1): "Fundacion de la ciudad de El Tocuyo (1545)",
         (2, 1): "Nacimiento de Jose Antonio Paez (1790)",
@@ -195,7 +328,6 @@ def obtener_efemerides():
         (25, 12): "Navidad en Venezuela"
     }
     
-    # Efemerides del Mundo por fecha especifica
     efemerides_mundo_especificas = {
         (1, 1): "Año Nuevo. Primer dia del año en el calendario gregoriano",
         (6, 1): "Dia de Reyes. Los tres reyes magos visitan al niño Jesus",
@@ -238,11 +370,9 @@ def obtener_efemerides():
         (31, 12): "Fin de Año"
     }
     
-    # Obtener efemerides del dia especifico
     efemeride_ve = efemerides_venezuela_especificas.get((dia, mes), "Hoy conmemoramos la historia y cultura de Venezuela")
     efemeride_mundo = efemerides_mundo_especificas.get((dia, mes), "Hoy celebramos la diversidad y unidad del mundo")
     
-    # Datos curiosos adicionales de Venezuela
     efemerides_extra_ve = [
         "El Salto Angel es la cascada mas alta del mundo con 979 metros",
         "Venezuela tiene 43 parques nacionales que protegen ecosistemas unicos",
@@ -261,7 +391,6 @@ def obtener_efemerides():
         "Venezuela es cuna del cuatro, instrumento musical emblematico"
     ]
     
-    # Datos curiosos adicionales del Mundo
     efemerides_extra_mundo = [
         "La Gran Muralla China es la estructura mas larga construida por el hombre",
         "El Monte Everest es la montana mas alta del mundo con 8848 metros",
@@ -393,7 +522,6 @@ with st.sidebar:
         pass
     st.title("Venezuela Gestion")
     
-    # Enlace directo para que los usuarios accedan a la app
     app_url = "https://williantuguiasantateresa.streamlit.app/"
     st.markdown(f"""
     <div style="text-align: center; margin: 20px 0;">
@@ -413,7 +541,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Panel de administracion (requiere clave)
     with st.expander("Acceso Administrador"):
         clave_admin = st.text_input("Clave:", type="password", key="admin_key")
         if clave_admin == "Juan*316*":
@@ -493,7 +620,6 @@ with st.sidebar:
                         else:
                             st.error("Nombre requerido")
             
-            # TAB EDICION Y ELIMINACION - CON BOTON DE ELIMINAR VISIBLE
             with tab_admin3:
                 st.write("### ✏️ Editar Comercio")
                 try:
@@ -502,7 +628,6 @@ with st.sidebar:
                     if not comercios_list.empty:
                         comercio_nombres = comercios_list['nombre'].tolist()
                         
-                        # SECCION DE EDICION
                         st.markdown("#### Selecciona el comercio a EDITAR")
                         sel_comercio_edit = st.selectbox(
                             "Comercio para editar", 
@@ -561,10 +686,9 @@ with st.sidebar:
                                     st.success(f"✅ Comercio '{new_n}' actualizado correctamente")
                                     st.rerun()
                         
-                        # SECCION DE ELIMINACION - CON BOTON VISIBLE Y CONFIRMACION
                         st.markdown("---")
                         st.markdown("### 🗑️ Eliminar Comercio")
-                        st.warning("⚠️ Esta acción es irreversible. Se eliminarán también las fotos y opiniones asociadas.")
+                        st.warning("⚠️ Esta accion es irreversible. Se eliminaran tambien las fotos y opiniones asociadas.")
                         
                         sel_comercio_delete = st.selectbox(
                             "Selecciona el comercio a ELIMINAR", 
@@ -576,13 +700,11 @@ with st.sidebar:
                         
                         st.info(f"📌 Comercio seleccionado: **{target_delete['nombre']}**")
                         
-                        # Confirmacion escribiendo ELIMINAR
                         confirmar_texto = st.text_input(
-                            f"Escribe **ELIMINAR** para confirmar la eliminación de '{target_delete['nombre']}'",
+                            f"Escribe **ELIMINAR** para confirmar la eliminacion de '{target_delete['nombre']}'",
                             key="confirm_delete_input"
                         )
                         
-                        # BOTON DE ELIMINAR - CLARAMENTE VISIBLE
                         if st.button("🗑️ ELIMINAR Comercio", type="secondary", key="btn_delete_comercio_final", use_container_width=True):
                             if confirmar_texto == "ELIMINAR":
                                 with conn.session as s:
@@ -596,9 +718,9 @@ with st.sidebar:
                                 st.success(f"✅ Comercio '{target_delete['nombre']}' eliminado correctamente")
                                 st.rerun()
                             elif confirmar_texto:
-                                st.error("❌ No se eliminó. Escribe exactamente 'ELIMINAR' para confirmar")
+                                st.error("❌ No se elimino. Escribe exactamente 'ELIMINAR' para confirmar")
                             else:
-                                st.warning("✏️ Escribe 'ELIMINAR' en el campo de texto y luego presiona el botón")
+                                st.warning("✏️ Escribe 'ELIMINAR' en el campo de texto y luego presiona el boton")
                     else:
                         st.info("No hay comercios registrados para editar o eliminar.")
                         
@@ -671,10 +793,8 @@ ahora_vzla = datetime.utcnow() - timedelta(hours=4)
 dias_semana = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"]
 meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
-# Obtener efemerides del dia
 efemeride_ve, efemeride_mundo, extra_ve, extra_mundo = obtener_efemerides()
 
-# Festivos 2026
 festivos_2026 = [
     (datetime(2026, 1, 1), "Año Nuevo"),
     (datetime(2026, 2, 16), "Lunes de Carnaval"),
@@ -699,7 +819,6 @@ for fecha, nombre in festivos_2026:
         proximo_festivo = f"{nombre} ({fecha.strftime('%d/%m')})"
         break
 
-# Panel de estadisticas y fecha (el contador ya suma +1 automáticamente)
 st.markdown(f'''
 <div class="stats-panel">
 <span style="color:#ffcc00; font-size:1.1em; font-weight:bold;">{dias_semana[ahora_vzla.weekday()]}, {ahora_vzla.day} de {meses[ahora_vzla.month-1]} de {ahora_vzla.year}
@@ -709,7 +828,6 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-# Panel de Efemerides de Venezuela
 st.markdown(f'''
 <div class="efemerides-panel">
     <span style="color:#ffcc00; font-weight:bold; font-size:1.1em;">VENEZUELA</span><br>
@@ -718,7 +836,6 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-# Panel de Efemerides del Mundo
 st.markdown(f'''
 <div class="efemerides-panel">
     <span style="color:#ffcc00; font-weight:bold; font-size:1.1em;">MUNDO</span><br>
@@ -727,7 +844,6 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-# Panel de proximo festivo
 st.markdown(f'''
 <div class="holiday-panel">
     <span style="color:#ffcc00; font-weight:bold;">PROXIMO DIA FERIADO VENEZUELA 2026:</span><br>
@@ -738,7 +854,6 @@ st.markdown(f'''
 # --- GUIA COMERCIAL ---
 st.title("Guia Comercial Almenar")
 
-# --- ENLACES ---
 link_app = "https://williantuguiasantateresa.streamlit.app/"
 whatsapp_url = f"https://api.whatsapp.com/send?text=Mira la Guia Comercial de Santa Teresa! {link_app}"
 col_s1, col_s2 = st.columns(2)
@@ -823,7 +938,8 @@ for i, tab in enumerate(tabs_main):
                                 for _, op in op_df.iterrows():
                                     try:
                                         estrellas_u_val = int(op['estrellas_u']) if op['estrellas_u'] is not None and str(op['estrellas_u']).isdigit() else 0
-                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']} ({'*'*estrellas_u_val})</div>", unsafe_allow_html=True)
+                                        estrellas_texto = '*' * estrellas_u_val
+                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']} ({estrellas_texto})</div>", unsafe_allow_html=True)
                                     except:
                                         st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']}</div>", unsafe_allow_html=True)
 
