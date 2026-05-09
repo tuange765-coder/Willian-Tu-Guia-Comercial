@@ -41,7 +41,7 @@ except Exception as e:
     st.error(f"Error de conexion: {str(e)}")
     st.stop()
 
-# --- CATEGORIAS DEFINIDAS (se agrega "Comercio" y "Ente Publico") ---
+# --- CATEGORIAS DEFINIDAS ---
 CAT_LIST = [
     "Salud", "Laboratorios", "Opticas", "Farmacias", "Dulcerias",
     "Comida Rapida", "Panaderias", "Charcuterias", "Carnicerias",
@@ -297,6 +297,7 @@ def obtener_efemerides():
     dia = hoy.day
     mes = hoy.month
     
+    # Efemerides de Venezuela por fecha especifica
     efemerides_venezuela_especificas = {
         (1, 1): "Fundacion de la ciudad de El Tocuyo (1545)",
         (2, 1): "Nacimiento de Jose Antonio Paez (1790)",
@@ -328,6 +329,7 @@ def obtener_efemerides():
         (25, 12): "Navidad en Venezuela"
     }
     
+    # Efemerides del Mundo por fecha especifica
     efemerides_mundo_especificas = {
         (1, 1): "Año Nuevo. Primer dia del año en el calendario gregoriano",
         (6, 1): "Dia de Reyes. Los tres reyes magos visitan al niño Jesus",
@@ -370,9 +372,11 @@ def obtener_efemerides():
         (31, 12): "Fin de Año"
     }
     
+    # Obtener efemerides del dia especifico
     efemeride_ve = efemerides_venezuela_especificas.get((dia, mes), "Hoy conmemoramos la historia y cultura de Venezuela")
     efemeride_mundo = efemerides_mundo_especificas.get((dia, mes), "Hoy celebramos la diversidad y unidad del mundo")
     
+    # Datos curiosos adicionales de Venezuela
     efemerides_extra_ve = [
         "El Salto Angel es la cascada mas alta del mundo con 979 metros",
         "Venezuela tiene 43 parques nacionales que protegen ecosistemas unicos",
@@ -391,6 +395,7 @@ def obtener_efemerides():
         "Venezuela es cuna del cuatro, instrumento musical emblematico"
     ]
     
+    # Datos curiosos adicionales del Mundo
     efemerides_extra_mundo = [
         "La Gran Muralla China es la estructura mas larga construida por el hombre",
         "El Monte Everest es la montana mas alta del mundo con 8848 metros",
@@ -549,7 +554,7 @@ with st.sidebar:
             st.markdown("---")
             st.write("### Panel de Control")
             
-            tab_admin1, tab_admin2, tab_admin3, tab_admin4, tab_admin5 = st.tabs(["Denuncias", "Agregar", "Editar", "Opiniones", "Logo"])
+            tab_admin1, tab_admin2, tab_admin3, tab_admin4, tab_admin5, tab_admin6 = st.tabs(["Denuncias", "Agregar", "Editar", "Opiniones", "Logo", "📸 Subir Fotos"])
             
             with tab_admin1:
                 st.write("### Gestion de Denuncias")
@@ -776,6 +781,106 @@ with st.sidebar:
                             s.commit()
                         st.success("Logo guardado")
                         st.rerun()
+            
+            # NUEVA PESTAÑA: SUBIR FOTOS A COMERCIOS
+            with tab_admin6:
+                st.write("### 📸 Subir Fotos a Comercios")
+                st.info("Puedes subir una o varias fotos para cada comercio. Las fotos adicionales se mostraran junto a la foto principal.")
+                
+                try:
+                    # Obtener lista de comercios
+                    comercios_lista = conn.query("SELECT id, nombre, categoria FROM comercios ORDER BY nombre", ttl=0)
+                    
+                    if not comercios_lista.empty:
+                        # Selector de comercio
+                        comercio_opciones = {row['nombre']: row['id'] for _, row in comercios_lista.iterrows()}
+                        comercio_seleccionado_nombre = st.selectbox(
+                            "Selecciona el Comercio",
+                            list(comercio_opciones.keys()),
+                            key="select_comercio_fotos"
+                        )
+                        comercio_seleccionado_id = comercio_opciones[comercio_seleccionado_nombre]
+                        
+                        # Mostrar informacion del comercio seleccionado
+                        st.markdown(f"**Comercio seleccionado:** {comercio_seleccionado_nombre}")
+                        st.markdown(f"**ID:** {comercio_seleccionado_id}")
+                        
+                        # Mostrar fotos existentes del comercio
+                        fotos_existentes = conn.query(
+                            "SELECT id, foto_data FROM fotos_comercios WHERE comercio_id = :cid ORDER BY id",
+                            params={"cid": comercio_seleccionado_id},
+                            ttl=0
+                        )
+                        
+                        if not fotos_existentes.empty:
+                            st.markdown("#### 📷 Fotos actuales del comercio:")
+                            cols = st.columns(3)
+                            for idx, (_, foto) in enumerate(fotos_existentes.iterrows()):
+                                with cols[idx % 3]:
+                                    st.image(foto['foto_data'], use_container_width=True)
+                                    if st.button(f"🗑️ Eliminar", key=f"del_foto_{foto['id']}"):
+                                        with conn.session as s:
+                                            s.execute(text("DELETE FROM fotos_comercios WHERE id = :fid"), {"fid": foto['id']})
+                                            s.commit()
+                                        st.success("Foto eliminada")
+                                        st.rerun()
+                        else:
+                            st.info("Este comercio no tiene fotos adicionales aun. Sube algunas desde abajo.")
+                        
+                        st.markdown("---")
+                        
+                        # Subir nuevas fotos
+                        st.markdown("#### 📤 Subir nuevas fotos")
+                        st.write("Puedes seleccionar varias fotos a la vez (JPG, JPEG, PNG, maximo 5MB cada una)")
+                        
+                        fotos_subir = st.file_uploader(
+                            "Selecciona una o varias fotos",
+                            type=["jpg", "jpeg", "png"],
+                            accept_multiple_files=True,
+                            key="upload_fotos_comercio"
+                        )
+                        
+                        if fotos_subir:
+                            st.write(f"**{len(fotos_subir)}** foto(s) seleccionada(s)")
+                            
+                            # Mostrar vista previa de las fotos seleccionadas
+                            st.markdown("#### Vista previa de las fotos a subir:")
+                            cols_preview = st.columns(min(len(fotos_subir), 4))
+                            for idx, foto in enumerate(fotos_subir[:4]):
+                                with cols_preview[idx % 4]:
+                                    st.image(foto, use_container_width=True)
+                            
+                            # Boton para guardar
+                            if st.button("✅ Guardar Fotos", key="btn_guardar_fotos", use_container_width=True):
+                                with st.spinner("Subiendo fotos a la base de datos..."):
+                                    fotos_guardadas = 0
+                                    fotos_error = 0
+                                    
+                                    for foto in fotos_subir:
+                                        foto_base64 = imagen_a_base64(foto)
+                                        if foto_base64:
+                                            with conn.session as s:
+                                                s.execute(text("""
+                                                    INSERT INTO fotos_comercios (comercio_id, foto_data)
+                                                    VALUES (:cid, :foto)
+                                                """), {"cid": comercio_seleccionado_id, "foto": foto_base64})
+                                                s.commit()
+                                            fotos_guardadas += 1
+                                        else:
+                                            fotos_error += 1
+                                    
+                                    if fotos_guardadas > 0:
+                                        st.success(f"✅ {fotos_guardadas} foto(s) guardada(s) exitosamente!")
+                                        if fotos_error > 0:
+                                            st.warning(f"⚠️ {fotos_error} foto(s) no pudieron procesarse (posiblemente muy grandes)")
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Error al guardar las fotos. Verifica que no excedan los 5MB.")
+                    else:
+                        st.info("No hay comercios registrados. Agrega comercios primero en la pestaña 'Agregar'.")
+                        
+                except Exception as e:
+                    st.error(f"Error al cargar comercios: {str(e)}")
 
 # --- ENCABEZADO PRINCIPAL ---
 st.markdown('<div class="venezuela-header"><div class="stars-arc">★★★★★★★★</div></div>', unsafe_allow_html=True)
@@ -938,8 +1043,7 @@ for i, tab in enumerate(tabs_main):
                                 for _, op in op_df.iterrows():
                                     try:
                                         estrellas_u_val = int(op['estrellas_u']) if op['estrellas_u'] is not None and str(op['estrellas_u']).isdigit() else 0
-                                        estrellas_texto = '*' * estrellas_u_val
-                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']} ({estrellas_texto})</div>", unsafe_allow_html=True)
+                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']} ({'*'*estrellas_u_val})</div>", unsafe_allow_html=True)
                                     except:
                                         st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']}</div>", unsafe_allow_html=True)
 
