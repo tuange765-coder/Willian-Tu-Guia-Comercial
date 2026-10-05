@@ -54,7 +54,6 @@ def agregar_comercios_predeterminados():
     """Agrega los comercios y entes publicos solicitados si no existen"""
     try:
         with conn.session as s:
-            # Verificar si ya existe alguno de los comercios
             negocios_existentes = s.execute(text("""
                 SELECT COUNT(*) FROM comercios 
                 WHERE nombre IN ('Corpoelec - Oficina Comercial', 'Fiscalia Municipal', 'Policia Municipal', 
@@ -65,7 +64,6 @@ def agregar_comercios_predeterminados():
             
             if negocios_existentes[0] == 0:
                 comercios_predeterminados = [
-                    # Entes Públicos
                     {
                         "nombre": "Corpoelec - Oficina Comercial",
                         "categoria": "Entes Publicos",
@@ -122,7 +120,6 @@ def agregar_comercios_predeterminados():
                         "estrellas": 4,
                         "maps_url": "https://maps.google.com/?q=10.239000,-66.669000"
                     },
-                    # Comercios
                     {
                         "nombre": "Unicasa",
                         "categoria": "Comercio",
@@ -247,10 +244,10 @@ except Exception as e:
     st.error(f"Error al crear las tablas: {str(e)}")
     st.stop()
 
-# --- AGREGAR COMERCIOS PREDETERMINADOS (NO BORRA LOS EXISTENTES) ---
+# --- AGREGAR COMERCIOS PREDETERMINADOS ---
 agregar_comercios_predeterminados()
 
-# --- LOGICA DE VISITAS TOTALES (COMIENZA EN 1500 Y SUMA +1 CADA VEZ) ---
+# --- LOGICA DE VISITAS TOTALES ---
 if 'visitado' not in st.session_state:
     try:
         with conn.session as s:
@@ -297,7 +294,6 @@ def obtener_efemerides():
     dia = hoy.day
     mes = hoy.month
     
-    # Efemerides de Venezuela por fecha especifica
     efemerides_venezuela_especificas = {
         (1, 1): "Fundacion de la ciudad de El Tocuyo (1545)",
         (2, 1): "Nacimiento de Jose Antonio Paez (1790)",
@@ -329,7 +325,6 @@ def obtener_efemerides():
         (25, 12): "Navidad en Venezuela"
     }
     
-    # Efemerides del Mundo por fecha especifica
     efemerides_mundo_especificas = {
         (1, 1): "Año Nuevo. Primer dia del año en el calendario gregoriano",
         (6, 1): "Dia de Reyes. Los tres reyes magos visitan al niño Jesus",
@@ -372,11 +367,9 @@ def obtener_efemerides():
         (31, 12): "Fin de Año"
     }
     
-    # Obtener efemerides del dia especifico
     efemeride_ve = efemerides_venezuela_especificas.get((dia, mes), "Hoy conmemoramos la historia y cultura de Venezuela")
     efemeride_mundo = efemerides_mundo_especificas.get((dia, mes), "Hoy celebramos la diversidad y unidad del mundo")
     
-    # Datos curiosos adicionales de Venezuela
     efemerides_extra_ve = [
         "El Salto Angel es la cascada mas alta del mundo con 979 metros",
         "Venezuela tiene 43 parques nacionales que protegen ecosistemas unicos",
@@ -395,7 +388,6 @@ def obtener_efemerides():
         "Venezuela es cuna del cuatro, instrumento musical emblematico"
     ]
     
-    # Datos curiosos adicionales del Mundo
     efemerides_extra_mundo = [
         "La Gran Muralla China es la estructura mas larga construida por el hombre",
         "El Monte Everest es la montana mas alta del mundo con 8848 metros",
@@ -782,17 +774,14 @@ with st.sidebar:
                         st.success("Logo guardado")
                         st.rerun()
             
-            # NUEVA PESTAÑA: SUBIR FOTOS A COMERCIOS
             with tab_admin6:
                 st.write("### 📸 Subir Fotos a Comercios")
                 st.info("Puedes subir una o varias fotos para cada comercio. Las fotos adicionales se mostraran junto a la foto principal.")
                 
                 try:
-                    # Obtener lista de comercios
                     comercios_lista = conn.query("SELECT id, nombre, categoria FROM comercios ORDER BY nombre", ttl=0)
                     
                     if not comercios_lista.empty:
-                        # Selector de comercio
                         comercio_opciones = {row['nombre']: row['id'] for _, row in comercios_lista.iterrows()}
                         comercio_seleccionado_nombre = st.selectbox(
                             "Selecciona el Comercio",
@@ -801,11 +790,9 @@ with st.sidebar:
                         )
                         comercio_seleccionado_id = comercio_opciones[comercio_seleccionado_nombre]
                         
-                        # Mostrar informacion del comercio seleccionado
                         st.markdown(f"**Comercio seleccionado:** {comercio_seleccionado_nombre}")
                         st.markdown(f"**ID:** {comercio_seleccionado_id}")
                         
-                        # Mostrar fotos existentes del comercio
                         fotos_existentes = conn.query(
                             "SELECT id, foto_data FROM fotos_comercios WHERE comercio_id = :cid ORDER BY id",
                             params={"cid": comercio_seleccionado_id},
@@ -829,7 +816,6 @@ with st.sidebar:
                         
                         st.markdown("---")
                         
-                        # Subir nuevas fotos
                         st.markdown("#### 📤 Subir nuevas fotos")
                         st.write("Puedes seleccionar varias fotos a la vez (JPG, JPEG, PNG, maximo 5MB cada una)")
                         
@@ -843,14 +829,12 @@ with st.sidebar:
                         if fotos_subir:
                             st.write(f"**{len(fotos_subir)}** foto(s) seleccionada(s)")
                             
-                            # Mostrar vista previa de las fotos seleccionadas
                             st.markdown("#### Vista previa de las fotos a subir:")
                             cols_preview = st.columns(min(len(fotos_subir), 4))
                             for idx, foto in enumerate(fotos_subir[:4]):
                                 with cols_preview[idx % 4]:
                                     st.image(foto, use_container_width=True)
                             
-                            # Boton para guardar
                             if st.button("✅ Guardar Fotos", key="btn_guardar_fotos", use_container_width=True):
                                 with st.spinner("Subiendo fotos a la base de datos..."):
                                     fotos_guardadas = 0
@@ -970,7 +954,15 @@ with col_s2:
 st.markdown("---")
 busq = st.text_input("Que buscas en Santa Teresa?", placeholder="Ej: Panaderia, Farmacia...")
 tab_labels = ["Todos"] + CAT_LIST
-tabs_main = st.tabs(tab_labels)
+
+# --- SELECTOR DE CATEGORIA (no despliega nada por defecto) ---
+seleccion = st.radio(
+    "Selecciona una categoría para ver los comercios:",
+    options=tab_labels,
+    index=None,
+    horizontal=True,
+    key="categoria_selector"
+)
 
 try:
     df = conn.query("SELECT * FROM comercios", ttl=0)
@@ -987,89 +979,91 @@ try:
 except Exception:
     todas_fotos = pd.DataFrame()
 
-for i, tab in enumerate(tabs_main):
-    with tab:
-        categoria_seleccionada = tab_labels[i]
-        if not df.empty:
-            filtrado = df[df['nombre'].str.contains(busq, case=False) | df['categoria'].str.contains(busq, case=False)]
-            if categoria_seleccionada != "Todos":
-                filtrado = filtrado[filtrado['categoria'] == categoria_seleccionada]
-            
-            if filtrado.empty:
-                st.warning(f"No hay comercios registrados en {categoria_seleccionada}." if categoria_seleccionada != "Todos" else "No se encontraron resultados.")
-            else:
-                for idx, r in filtrado.iterrows():
-                    expander_titulo = f"{r['nombre']} - {r['categoria']}"
-                    with st.expander(expander_titulo):
-                        visit_key = f"visited_{r['id']}"
-                        if visit_key not in st.session_state:
-                            try:
-                                with conn.session as s:
-                                    s.execute(text("UPDATE comercios SET visitas = visitas + 1 WHERE id = :id"), {"id": int(r['id'])})
-                                    s.commit()
-                                st.session_state[visit_key] = True
-                            except Exception:
-                                pass
+# --- MOSTRAR COMERCIOS SOLO SI SE ELIGIO UNA CATEGORIA ---
+if seleccion is None:
+    st.info("👆 Selecciona una categoría arriba para ver los comercios.")
+else:
+    categoria_seleccionada = seleccion
+    if not df.empty:
+        filtrado = df[df['nombre'].str.contains(busq, case=False) | df['categoria'].str.contains(busq, case=False)]
+        if categoria_seleccionada != "Todos":
+            filtrado = filtrado[filtrado['categoria'] == categoria_seleccionada]
+        
+        if filtrado.empty:
+            st.warning(f"No hay comercios registrados en {categoria_seleccionada}." if categoria_seleccionada != "Todos" else "No se encontraron resultados.")
+        else:
+            for idx, r in filtrado.iterrows():
+                expander_titulo = f"{r['nombre']} - {r['categoria']}"
+                with st.expander(expander_titulo):
+                    visit_key = f"visited_{r['id']}"
+                    if visit_key not in st.session_state:
+                        try:
+                            with conn.session as s:
+                                s.execute(text("UPDATE comercios SET visitas = visitas + 1 WHERE id = :id"), {"id": int(r['id'])})
+                                s.commit()
+                            st.session_state[visit_key] = True
+                        except Exception:
+                            pass
 
-                        col_img, col_info = st.columns([1, 2])
-                        with col_img:
-                            if isinstance(r['foto_url'], str) and (r['foto_url'].startswith('http') or r['foto_url'].startswith('data:image')):
-                                st.image(r['foto_url'], use_container_width=True, caption="Foto Principal")
-                            
-                            extras = todas_fotos[todas_fotos['comercio_id'] == r['id']]
-                            if not extras.empty:
-                                for _, f_row in extras.iterrows():
-                                    try:
-                                        st.image(f_row['foto_data'], use_container_width=True)
-                                    except Exception:
-                                        pass
+                    col_img, col_info = st.columns([1, 2])
+                    with col_img:
+                        if isinstance(r['foto_url'], str) and (r['foto_url'].startswith('http') or r['foto_url'].startswith('data:image')):
+                            st.image(r['foto_url'], use_container_width=True, caption="Foto Principal")
+                        
+                        extras = todas_fotos[todas_fotos['comercio_id'] == r['id']]
+                        if not extras.empty:
+                            for _, f_row in extras.iterrows():
+                                try:
+                                    st.image(f_row['foto_data'], use_container_width=True)
+                                except Exception:
+                                    pass
 
-                        with col_info:
-                            ubicacion_val = r['ubicacion'] if r['ubicacion'] is not None else "No especificada"
-                            st.write(f"**Ubicacion:** {ubicacion_val}")
-                            if r['maps_url']:
-                                st.link_button("IR A ESTA UBICACION (Google Maps)", r['maps_url'], type="primary", use_container_width=True)
-                            try:
-                                estrellas_w_val = int(r['estrellas_w']) if r['estrellas_w'] is not None and str(r['estrellas_w']).isdigit() else 0
-                                st.write(f"**Calificacion Willian:** {'*' * estrellas_w_val}")
-                            except:
-                                st.write(f"**Calificacion Willian:** ")
-                            
-                            resenna_val = r['resenna_willian'] if r['resenna_willian'] is not None else "Sin reseña"
-                            st.info(f"**Reseña de Willian:** {resenna_val}")
-                            st.markdown("---")
-                            if not todas_opiniones.empty:
-                                op_df = todas_opiniones[todas_opiniones['comercio_id'] == r['id']]
-                                for _, op in op_df.iterrows():
-                                    try:
-                                        estrellas_u_val = int(op['estrellas_u']) if op['estrellas_u'] is not None and str(op['estrellas_u']).isdigit() else 0
-                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']} ({'*'*estrellas_u_val})</div>", unsafe_allow_html=True)
-                                    except:
-                                        st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']}</div>", unsafe_allow_html=True)
+                    with col_info:
+                        ubicacion_val = r['ubicacion'] if r['ubicacion'] is not None else "No especificada"
+                        st.write(f"**Ubicacion:** {ubicacion_val}")
+                        if r['maps_url']:
+                            st.link_button("IR A ESTA UBICACION (Google Maps)", r['maps_url'], type="primary", use_container_width=True)
+                        try:
+                            estrellas_w_val = int(r['estrellas_w']) if r['estrellas_w'] is not None and str(r['estrellas_w']).isdigit() else 0
+                            st.write(f"**Calificacion Willian:** {'*' * estrellas_w_val}")
+                        except:
+                            st.write(f"**Calificacion Willian:** ")
+                        
+                        resenna_val = r['resenna_willian'] if r['resenna_willian'] is not None else "Sin reseña"
+                        st.info(f"**Reseña de Willian:** {resenna_val}")
+                        st.markdown("---")
+                        if not todas_opiniones.empty:
+                            op_df = todas_opiniones[todas_opiniones['comercio_id'] == r['id']]
+                            for _, op in op_df.iterrows():
+                                try:
+                                    estrellas_u_val = int(op['estrellas_u']) if op['estrellas_u'] is not None and str(op['estrellas_u']).isdigit() else 0
+                                    st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']} ({'*'*estrellas_u_val})</div>", unsafe_allow_html=True)
+                                except:
+                                    st.markdown(f"<div style='border-bottom: 1px solid #444; padding: 5px;'><b>{op['usuario']}</b>: {op['comentario']}</div>", unsafe_allow_html=True)
 
-                        st.markdown("##### Deja tu opinion")
-                        unique_id = str(uuid.uuid4()).replace('-', '')[:8]
-                        form_key = f"opinion_form_{r['id']}_{idx}_{i}_{unique_id}"
-                        with st.form(key=form_key):
-                            op_usuario = st.text_input("Tu nombre", key=f"op_user_{r['id']}_{idx}_{i}_{unique_id}")
-                            op_comentario = st.text_area("Comentario", key=f"op_com_{r['id']}_{idx}_{i}_{unique_id}")
-                            op_estrellas = st.slider("Tu calificacion", 1, 5, 5, key=f"op_est_{r['id']}_{idx}_{i}_{unique_id}")
-                            if st.form_submit_button("Enviar opinion"):
-                                if op_usuario.strip() and op_comentario.strip():
-                                    fecha_op = ahora_vzla.strftime("%d/%m/%Y")
-                                    try:
-                                        with conn.session as s:
-                                            s.execute(text(
-                                                "INSERT INTO opiniones (comercio_id, usuario, comentario, estrellas_u, fecha) "
-                                                "VALUES (:cid, :u, :c, :e, :f)"
-                                            ), {"cid": int(r['id']), "u": op_usuario.strip(), "c": op_comentario.strip(), "e": op_estrellas, "f": fecha_op})
-                                            s.commit()
-                                        st.success("Opinion enviada! Gracias.")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Error al guardar opinion: {e}")
-                                else:
-                                    st.warning("Escribe tu nombre y comentario antes de enviar.")
+                    st.markdown("##### Deja tu opinion")
+                    unique_id = str(uuid.uuid4()).replace('-', '')[:8]
+                    form_key = f"opinion_form_{r['id']}_{idx}_{unique_id}"
+                    with st.form(key=form_key):
+                        op_usuario = st.text_input("Tu nombre", key=f"op_user_{r['id']}_{idx}_{unique_id}")
+                        op_comentario = st.text_area("Comentario", key=f"op_com_{r['id']}_{idx}_{unique_id}")
+                        op_estrellas = st.slider("Tu calificacion", 1, 5, 5, key=f"op_est_{r['id']}_{idx}_{unique_id}")
+                        if st.form_submit_button("Enviar opinion"):
+                            if op_usuario.strip() and op_comentario.strip():
+                                fecha_op = ahora_vzla.strftime("%d/%m/%Y")
+                                try:
+                                    with conn.session as s:
+                                        s.execute(text(
+                                            "INSERT INTO opiniones (comercio_id, usuario, comentario, estrellas_u, fecha) "
+                                            "VALUES (:cid, :u, :c, :e, :f)"
+                                        ), {"cid": int(r['id']), "u": op_usuario.strip(), "c": op_comentario.strip(), "e": op_estrellas, "f": fecha_op})
+                                        s.commit()
+                                    st.success("Opinion enviada! Gracias.")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error al guardar opinion: {e}")
+                            else:
+                                st.warning("Escribe tu nombre y comentario antes de enviar.")
 
 # --- PIE DE PAGINA ---
 st.markdown("""
